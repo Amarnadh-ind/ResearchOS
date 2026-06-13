@@ -1,0 +1,180 @@
+@import "tailwindcss";
+
+/* ── ResearchOS Design System ────────────────────────── */
+
+@theme inline {
+  --color-bg-primary: #0a0a0f;
+  --color-bg-secondary: #111118;
+  --color-bg-tertiary: #1a1a24;
+  --color-bg-card: #13131d;
+  --color-bg-hover: #1e1e2e;
+  --color-bg-glass: rgba(19, 19, 29, 0.7);
+
+  --color-border: rgba(255, 255, 255, 0.06);
+  --color-border-active: rgba(99, 102, 241, 0.4);
+
+  --color-text-primary: #f0f0f5;
+  --color-text-secondary: #8b8ba3;
+  --color-text-muted: #5a5a72;
+
+  --color-accent: #6366f1;
+  --color-accent-hover: #818cf8;
+  --color-accent-glow: rgba(99, 102, 241, 0.15);
+
+  --color-success: #22c55e;
+  --color-warning: #f59e0b;
+  --color-error: #ef4444;
+  --color-info: #3b82f6;
+
+  --color-agent-planner: #8b5cf6;
+  --color-agent-search: #06b6d4;
+  --color-agent-browser: #3b82f6;
+  --color-agent-reader: #10b981;
+  --color-agent-claims: #f59e0b;
+  --color-agent-critic: #ef4444;
+  --color-agent-novelty: #ec4899;
+  --color-agent-citation: #6366f1;
+  --color-agent-writer: #14b8a6;
+  --color-agent-ieee: #8b5cf6;
+
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+}
+
+@layer base {
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background: var(--color-bg-primary);
+    color: var(--color-text-primary);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow: hidden;
+    height: 100vh;
+  }
+
+  /* ── Scrollbar ───────────────────────────────────── */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.2);
+  }
+
+  /* ── Selection ───────────────────────────────────── */
+  ::selection {
+    background: var(--color-accent);
+    color: white;
+  }
+}
+
+@layer components {
+  /* ── Glass Card ──────────────────────────────────── */
+  .glass-card {
+    background: var(--color-bg-glass);
+    backdrop-filter: blur(16px);
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+  }
+
+  /* ── Glow Effects ────────────────────────────────── */
+  .glow-accent {
+    box-shadow: 0 0 20px var(--color-accent-glow),
+                0 0 60px rgba(99, 102, 241, 0.05);
+  }
+
+  .glow-pulse {
+    animation: glow-pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes glow-pulse {
+    0%, 100% { box-shadow: 0 0 15px rgba(99, 102, 241, 0.15); }
+    50% { box-shadow: 0 0 30px rgba(99, 102, 241, 0.3); }
+  }
+
+  /* ── Gradient Text ───────────────────────────────── */
+  .gradient-text {
+    background: linear-gradient(135deg, #6366f1, #a855f7, #06b6d4);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* ── Agent Status Dot ────────────────────────────── */
+  .status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    animation: status-pulse 1.5s ease-in-out infinite;
+  }
+
+  .status-dot.active {
+    background: var(--color-success);
+  }
+
+  .status-dot.pending {
+    background: var(--color-text-muted);
+  }
+
+  .status-dot.running {
+    background: var(--color-accent);
+  }
+
+  .status-dot.error {
+    background: var(--color-error);
+  }
+
+  @keyframes status-pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.6; transform: scale(0.85); }
+  }
+
+  /* ── Pipeline Connector ──────────────────────────── */
+  .pipeline-line {
+    width: 2px;
+    background: linear-gradient(to bottom, var(--color-accent), transparent);
+  }
+
+  /* ── Shimmer Loading ─────────────────────────────── */
+  .shimmer {
+    background: linear-gradient(
+      90deg,
+      var(--color-bg-tertiary) 25%,
+      var(--color-bg-hover) 50%,
+      var(--color-bg-tertiary) 75%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.5s ease-in-out infinite;
+  }
+
+  @keyframes shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}

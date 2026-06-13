@@ -1,0 +1,46 @@
+# ResearchOS Backend Dependencies
+# ============================================================
+
+# Web Framework
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+python-multipart==0.0.19
+websockets==14.1
+
+# Pydantic
+pydantic==2.10.3
+pydantic-settings==2.7.1
+
+# LLM & Agents
+langgraph==0.2.60
+langchain-core==0.3.28
+langchain-openai==0.2.14
+httpx==0.28.1
+
+# Database Clients
+asyncpg==0.30.0
+sqlalchemy[asyncio]==2.0.36
+redis[hiredis]==5.2.1
+qdrant-client==1.12.1
+neo4j==5.27.0
+
+# Document Processing
+pymupdf==1.25.1
+beautifulsoup4==4.12.3
+lxml==5.3.0
+markdownify==0.14.1
+
+# Web Scraping
+playwright==1.49.1
+duckduckgo-search==7.2.1
+
+# Retrieval
+sentence-transformers==3.3.1
+rank-bm25==0.2.2
+numpy==2.2.1
+
+# Utilities
+python-dotenv==1.0.1
+tenacity==9.0.0
+structlog==24.4.0
+uuid7==0.1.0
