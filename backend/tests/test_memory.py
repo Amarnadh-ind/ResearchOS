@@ -1,13 +1,15 @@
-import sys
 import os
-import pytest
+import sys
 import uuid
+
+import pytest
 
 # Ensure backend directory is in the path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from memory.session import SessionMemory, InMemorySessionBackend
-from memory.metadata import MetadataStore, InMemoryMetadataBackend
+from memory.metadata import InMemoryMetadataBackend, MetadataStore
+from memory.session import InMemorySessionBackend, SessionMemory
+
 
 @pytest.mark.asyncio
 async def test_in_memory_session_backend():
@@ -86,6 +88,33 @@ async def test_metadata_store():
     await store.update_session_status(session_id, "running")
     updated = await store.get_session(session_id)
     assert updated["status"] == "running"
+    
+    # Clean up
+    await store.disconnect()
+
+@pytest.mark.asyncio
+async def test_cleanup_stuck_sessions():
+    store = MetadataStore()
+    
+    # Force memory fallback for clean test state
+    store._backend = "memory"
+    store._using_fallback = True
+    store._memory = InMemoryMetadataBackend()
+    
+    # Create a transient planning session and a completed session
+    id1 = str(uuid.uuid4())
+    id2 = str(uuid.uuid4())
+    
+    await store.create_session(id1, "prompt 1")
+    await store.update_session_status(id1, "planning")
+    
+    await store.create_session(id2, "prompt 2")
+    await store.update_session_status(id2, "completed")
+    
+    # Query active transient IDs
+    active_ids = await store.get_active_session_ids()
+    assert id1 in active_ids
+    assert id2 not in active_ids
     
     # Clean up
     await store.disconnect()

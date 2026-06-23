@@ -30,6 +30,9 @@ class SearchResult(BaseModel):
     url: str
     snippet: str
     relevance_score: float = Field(ge=0, le=1)
+    source_quality: float = Field(default=0.5, ge=0, le=1)
+    publication_date: str | None = None
+    author: str | None = None
 
 
 class SearchOutput(BaseModel):
@@ -44,9 +47,13 @@ class BrowsedPage(BaseModel):
     url: str
     title: str
     content: str
-    content_type: str = "text"  # text, pdf, html
+    content_type: str = "text"  # text, pdf, html, markdown
     word_count: int = 0
     extraction_quality: float = Field(default=0.8, ge=0, le=1)
+    publication_date: str | None = None
+    author: str | None = None
+    site_name: str | None = None
+    description: str | None = None
 
 
 class BrowserOutput(BaseModel):

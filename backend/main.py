@@ -1,10 +1,11 @@
 """
-ResearchOS — FastAPI Application
+ResearchOS  FastAPI Application
 Autonomous Multi-Agent Research Laboratory
 """
 
-import structlog
 from contextlib import asynccontextmanager
+
+import structlog
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -22,11 +23,11 @@ logger = structlog.get_logger()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Application lifespan — startup and shutdown."""
+    """Application lifespan  startup and shutdown."""
     settings = get_settings()
     logger.info("researchos_starting", version=settings.app_version)
 
-    # Connect to services (graceful — don't fail if DBs not ready)
+    # Connect to services (graceful  don't fail if DBs not ready)
     try:
         from services.llm_manager import LLMManager
         await LLMManager.verify_startup_health()
@@ -38,6 +39,26 @@ async def lifespan(app: FastAPI):
         await get_session_memory().connect()
     except Exception as e:
         logger.warning("redis_unavailable", error=str(e))
+
+    # Clean up stuck transient sessions from previous runs
+    try:
+        from memory.metadata import get_metadata_store
+        metadata = get_metadata_store()
+        active_ids = await metadata.get_active_session_ids()
+        if active_ids:
+            logger.info("cleaning_up_stuck_sessions", count=len(active_ids), session_ids=active_ids)
+            from memory.session import get_session_memory
+            session_mem = get_session_memory()
+            for sid in active_ids:
+                # Mark failed in metadata DB
+                await metadata.update_session_status(sid, "failed", error="Pipeline aborted due to server restart.")
+                # Mark failed in Redis state
+                await session_mem.set_state(sid, {
+                    "status": "failed",
+                    "error": "Pipeline aborted due to server restart."
+                })
+    except Exception as e:
+        logger.warning("failed_stuck_session_cleanup", error=str(e))
 
     try:
         from memory.retrieval_mem import get_retrieval_memory
@@ -95,7 +116,7 @@ async def lifespan(app: FastAPI):
         pass
 
 
-# ── Create App ───────────────────────────────────────────
+#  Create App 
 app = FastAPI(
     title="ResearchOS",
     description="Autonomous Multi-Agent Research Laboratory",
@@ -103,24 +124,29 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# ── CORS ─────────────────────────────────────────────────
+#  CORS 
 settings = get_settings()
+cors_origins = list(settings.cors_origins)
+if settings.debug:
+    cors_origins.append("*")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins + ["*"],  # Dev mode
+    allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# ── Routes ───────────────────────────────────────────────
-from api.routes.research import router as research_router
+#  Routes 
 from api.routes.agents import router as agents_router
+from api.routes.diagnostics import router as diagnostics_router
+from api.routes.research import router as research_router
 from api.routes.ws import router as ws_router
 
 app.include_router(research_router)
 app.include_router(agents_router)
 app.include_router(ws_router)
+app.include_router(diagnostics_router)
 
 
 @app.get("/")
@@ -133,216 +159,24 @@ async def root():
     }
 
 
-def resolve_diagnostics_model(key: str) -> tuple[str, str] | None:
-    """Resolves a frontend diagnostics key to a (model_name, provider) tuple."""
-    from services.llm_manager import LLMManager
-    if key == "manus":
-        return "manus", "manus"
-    elif key == "gemma_31b":
-        models = [m for m in LLMManager._discovered_gemma_models if "31b" in m.lower()]
-        if models:
-            return models[0], "gemma"
-        return None
-    elif key == "gemma_26b":
-        models = [m for m in LLMManager._discovered_gemma_models if "26b" in m.lower()]
-        if models:
-            return models[0], "gemma"
-        return None
-    elif key == "gemini_flash":
-        models = [m for m in LLMManager._discovered_gemini_models if "2.5-flash" in m.lower() and "lite" not in m.lower()]
-        if models:
-            return models[0], "gemini"
-        return None
-    elif key == "gemini_flash_lite":
-        models = [m for m in LLMManager._discovered_gemini_models if "lite" in m.lower()]
-        if models:
-            return models[0], "gemini"
-        return None
-    return None
-
-
 @app.get("/health")
 async def health():
-    # Trigger uvicorn reload to pick up new .env settings (updated keys)
     return {"status": "healthy"}
 
 
-@app.get("/api/diagnostics/providers")
-async def provider_diagnostics():
-    from services.llm_manager import LLMManager
-    if LLMManager._discovered_status["gemini"] == "untested":
-        await LLMManager.discover_google_models()
-        
-    keys = ["manus", "gemma_31b", "gemma_26b", "gemini_flash", "gemini_flash_lite"]
-    result = {}
-    for key in keys:
-        resolved = resolve_diagnostics_model(key)
-        if resolved:
-            model, prov = resolved
-            await LLMManager.test_model_health(prov, model)
-            diag = LLMManager._model_diagnostics.get(model, {})
-            result[key] = "online" if diag.get("connected") else "offline"
-        else:
-            result[key] = "offline"
-    return result
+def _format_provider_details(telemetry_models: dict) -> dict:
+    """Delegate to diagnostics router for backward compatibility."""
+    from api.routes.diagnostics import _format_provider_details as _fmt
+    return _fmt(telemetry_models)
 
 
-@app.get("/api/diagnostics/providers/details")
-async def provider_diagnostics_details():
-    from services.llm_manager import LLMManager
-    if LLMManager._discovered_status["gemini"] == "untested":
-        await LLMManager.discover_google_models()
-        
-    keys = ["manus", "gemma_31b", "gemma_26b", "gemini_flash", "gemini_flash_lite"]
-    result = {}
-    for key in keys:
-        display_name = {
-            "manus": "Manus AI",
-            "gemma_31b": "Gemma 4 31B",
-            "gemma_26b": "Gemma 4 26B",
-            "gemini_flash": "Gemini Flash",
-            "gemini_flash_lite": "Gemini Flash Lite"
-        }[key]
-        prov = "gemma" if "gemma" in key else ("gemini" if "gemini" in key else "manus")
-        
-        resolved = resolve_diagnostics_model(key)
-        if resolved:
-            model, prov = resolved
-            await LLMManager.test_model_health(prov, model)
-            diag = LLMManager._model_diagnostics.get(model, {})
-            result[key] = {
-                "status": "online" if diag.get("connected") else "offline",
-                "connected": bool(diag.get("connected")),
-                "latency": diag.get("latency", 0),
-                "last_status": diag.get("last_status", 0),
-                "last_error": diag.get("last_error", ""),
-                "model_name": model,
-                "display_name": display_name,
-                "provider": prov
-            }
-        else:
-            status_error = LLMManager._discovered_status.get(prov, "unavailable model")
-            if status_error == "online":
-                status_error = "unavailable model"
-            from config.settings import get_settings
-            api_key = getattr(get_settings(), f"{prov}_api_key", "")
-            if not api_key:
-                status_error = "invalid API key"
-                
-            result[key] = {
-                "status": "offline",
-                "connected": False,
-                "latency": 0,
-                "last_status": 404 if status_error == "unavailable model" else 400,
-                "last_error": status_error,
-                "model_name": "none",
-                "display_name": display_name,
-                "provider": prov
-            }
-    return result
+def classify_error(error_msg: str, status_code: int) -> str:
+    """Classify error into actionable categories."""
+    from services.quota_tracker import QuotaTracker
+    return QuotaTracker.classify_error(error_msg, status_code)
 
 
-@app.get("/api/diagnostics")
-async def system_diagnostics(session_id: str | None = None):
-    from config.settings import get_settings
-    from memory.session import get_session_memory
-    from services.llm_manager import LLMManager, get_llm_manager
-    
-    mgr = get_llm_manager()
-    
-    if LLMManager._discovered_status["gemini"] == "untested":
-        await LLMManager.discover_google_models()
-        
-    keys = ["manus", "gemma_31b", "gemma_26b", "gemini_flash", "gemini_flash_lite"]
-    for key in keys:
-        resolved = resolve_diagnostics_model(key)
-        if resolved:
-            model, prov = resolved
-            await LLMManager.test_model_health(prov, model)
-                
-    active_prov = "none"
-    active_model = "none"
-    api_connected = False
-    
-    for key in keys:
-        resolved = resolve_diagnostics_model(key)
-        if resolved:
-            model, prov = resolved
-            diag = LLMManager._model_diagnostics.get(model, {})
-            if diag.get("connected"):
-                active_prov = prov
-                active_model = model
-                api_connected = True
-                break
-            
-    last_status_code = 200 if api_connected else 401
-    
-    total_sources = 0
-    citations_found = 0
-    
-    if session_id:
-        try:
-            session_mem = get_session_memory()
-            state = await session_mem.get_state(session_id)
-            if state:
-                total_sources = len(state.get("sources", []))
-                citations_found = len(state.get("citations", []))
-        except Exception:
-            pass
-            
-    provider_details = {}
-    for key in keys:
-        display_name = {
-            "manus": "Manus AI",
-            "gemma_31b": "Gemma 4 31B",
-            "gemma_26b": "Gemma 4 26B",
-            "gemini_flash": "Gemini Flash",
-            "gemini_flash_lite": "Gemini Flash Lite"
-        }[key]
-        prov = "gemma" if "gemma" in key else ("gemini" if "gemini" in key else "manus")
-        
-        resolved = resolve_diagnostics_model(key)
-        if resolved:
-            model, prov = resolved
-            diag = LLMManager._model_diagnostics.get(model, {})
-            provider_details[key] = {
-                "status": "online" if diag.get("connected") else "offline",
-                "connected": bool(diag.get("connected")),
-                "latency": diag.get("latency", 0),
-                "last_status": diag.get("last_status", 0),
-                "last_error": diag.get("last_error", ""),
-                "model_name": model,
-                "display_name": display_name,
-                "provider": prov
-            }
-        else:
-            status_error = LLMManager._discovered_status.get(prov, "unavailable model")
-            if status_error == "online":
-                status_error = "unavailable model"
-            from config.settings import get_settings
-            api_key = getattr(get_settings(), f"{prov}_api_key", "")
-            if not api_key:
-                status_error = "invalid API key"
-                
-            provider_details[key] = {
-                "status": "offline",
-                "connected": False,
-                "latency": 0,
-                "last_status": 404 if status_error == "unavailable model" else 400,
-                "last_error": status_error,
-                "model_name": "none",
-                "display_name": display_name,
-                "provider": prov
-            }
-            
-    return {
-        "provider": active_prov,
-        "model": active_model,
-        "api_connected": api_connected,
-        "last_status_code": last_status_code,
-        "mock_mode": False,
-        "active_pipeline": "real",
-        "total_sources": total_sources,
-        "citations_found": citations_found,
-        "provider_details": provider_details,
-    }
+def get_recovery_info(record, cooldown_remaining: int) -> dict:
+    """Generate recovery information for a model."""
+    from services.quota_tracker import QuotaTracker
+    return QuotaTracker.get_recovery_info(record, cooldown_remaining)

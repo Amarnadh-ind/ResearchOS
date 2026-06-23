@@ -1,18 +1,18 @@
-import sys
 import os
-import pytest
+import sys
 
 # Ensure backend directory is in the path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from services.visual_generator import (
+    generate_architecture_svg,
     generate_bar_chart_svg,
     generate_line_chart_svg,
     generate_pie_chart_svg,
-    generate_architecture_svg,
     generate_visuals_for_topic,
-    inject_visuals_into_paper
+    inject_visuals_into_paper,
 )
+
 
 def test_generate_bar_chart_svg():
     categories = ["Cat A", "Cat B"]

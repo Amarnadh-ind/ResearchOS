@@ -75,7 +75,6 @@ def compute_page_budget(
     # If expected_sections are provided and they match known allocations, use them.
     # Otherwise, use the default allocation keys.
     allocations = {}
-    remaining_fraction = 1.0
 
     if expected_sections and len(expected_sections) >= 5:
         # Map expected sections to default fractions by order

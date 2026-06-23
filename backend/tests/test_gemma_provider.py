@@ -1,15 +1,28 @@
-import sys
 import os
-import pytest
-import httpx
+import sys
 from unittest.mock import AsyncMock, MagicMock
+
+import httpx
+import pytest
 
 # Ensure backend directory is in the path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from services.llm_manager import get_llm_manager, LLMManager
 from config.models import AgentRole
 from config.settings import get_settings
+from services.llm_manager import LLMManager, get_llm_manager
+
+
+@pytest.fixture(autouse=True)
+def clean_tracker():
+    from services.quota_tracker import reset_quota_tracker
+    reset_quota_tracker()
+    LLMManager._discovered_gemma_models = []
+    LLMManager._discovered_gemini_models = []
+    LLMManager._discovered_other_models = []
+    LLMManager._routing_pool = []
+    LLMManager._discovery_completed = False
+    LLMManager._model_diagnostics = {}
 
 @pytest.mark.asyncio
 async def test_gemma_provider_success(monkeypatch):

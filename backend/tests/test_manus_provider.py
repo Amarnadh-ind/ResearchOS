@@ -1,22 +1,41 @@
-import sys
 import os
-import pytest
-import httpx
+import sys
 from unittest.mock import AsyncMock, MagicMock
+
+import httpx
+import pytest
 
 # Ensure backend directory is in the path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from services.llm_manager import get_llm_manager, LLMManager
 from config.models import AgentRole
 from config.settings import get_settings
+from services.llm_manager import LLMManager, get_llm_manager
 
 
 @pytest.fixture(autouse=True)
-def clean_discovery():
+def clean_discovery(monkeypatch):
     """Reset the discovered status and lists before each test."""
+    from services.quota_tracker import reset_quota_tracker
+    reset_quota_tracker()
+    
+    # Clear all keys from env/settings to prevent leaks
+    monkeypatch.setenv("GEMINI_API_KEY", "")
+    monkeypatch.setenv("GEMMA_API_KEY", "")
+    monkeypatch.setenv("MANUS_API_KEY", "")
+    monkeypatch.setenv("OPENAI_API_KEY", "")
+    monkeypatch.setenv("OPENROUTER_API_KEY", "")
+    monkeypatch.setenv("GROK_API_KEY", "")
+    
+    from config.settings import get_settings
+    get_settings.cache_clear()
+    
     LLMManager._discovered_gemma_models = []
     LLMManager._discovered_gemini_models = []
+    LLMManager._discovered_other_models = []
+    LLMManager._routing_pool = []
+    LLMManager._discovery_completed = False
+    LLMManager._model_diagnostics = {}
     LLMManager._discovered_status = {
         "manus": "untested",
         "gemma": "untested",
@@ -84,7 +103,7 @@ async def test_manus_only_mode(monkeypatch, capsys):
     assert res is not None
     # Verify only Manus was called (and no Gemma or Gemini URLs)
     assert len(called_urls) == 1
-    assert "manus.ai" in called_urls[0]
+    assert "manus" in called_urls[0]
     
     captured = capsys.readouterr()
     stdout = captured.out
@@ -112,7 +131,7 @@ async def test_manus_to_gemini_failover(monkeypatch, capsys):
     async def mock_post(url, *args, **kwargs):
         called_urls.append(url)
         req = httpx.Request("POST", url)
-        if "manus.ai" in url:
+        if "manus" in url:
             return httpx.Response(status_code=429, request=req, text="Manus rate limit")
         else:
             # Gemini response
@@ -133,6 +152,8 @@ async def test_manus_to_gemini_failover(monkeypatch, capsys):
             
     setup_mock_client(monkeypatch, mock_post)
     await mgr.discover_google_models()
+    LLMManager._discovered_gemma_models = []
+    LLMManager._build_routing_pool()
     
     res = await mgr.generate(
         prompt="Test Manus to Gemini failover",
@@ -142,7 +163,7 @@ async def test_manus_to_gemini_failover(monkeypatch, capsys):
     
     assert res == "Gemini fallback response"
     assert len(called_urls) == 2
-    assert "manus.ai" in called_urls[0]
+    assert "manus" in called_urls[0]
     assert "gemini-2.5-flash" in called_urls[1]
     
     captured = capsys.readouterr()
@@ -172,7 +193,7 @@ async def test_manus_to_gemma_failover(monkeypatch, capsys):
     async def mock_post(url, *args, **kwargs):
         called_urls.append(url)
         req = httpx.Request("POST", url)
-        if "manus.ai" in url:
+        if "manus" in url:
             return httpx.Response(status_code=402, request=req, text="Manus payment required")
         else:
             # Gemma response
@@ -193,6 +214,8 @@ async def test_manus_to_gemma_failover(monkeypatch, capsys):
             
     setup_mock_client(monkeypatch, mock_post)
     await mgr.discover_google_models()
+    LLMManager._discovered_gemini_models = []
+    LLMManager._build_routing_pool()
     
     res = await mgr.generate(
         prompt="Test Manus to Gemma failover",
@@ -202,7 +225,7 @@ async def test_manus_to_gemma_failover(monkeypatch, capsys):
     
     assert res == "Gemma fallback response"
     assert len(called_urls) == 2
-    assert "manus.ai" in called_urls[0]
+    assert "manus" in called_urls[0]
     assert "gemma-4-31b-it" in called_urls[1]
     
     captured = capsys.readouterr()
@@ -248,25 +271,17 @@ async def test_full_manus_routing_chain(monkeypatch, capsys):
     assert res is not None
     # Verify we hit all 5 configured models before falling back to mock
     assert len(called_urls) == 5
-    assert "manus.ai" in called_urls[0]
-    assert "gemma-4-31b-it" in called_urls[1]
-    assert "gemma-4-26b-a4b-it" in called_urls[2]
-    assert "gemini-2.5-flash" in called_urls[3]
-    assert "gemini-2.5-flash-lite" in called_urls[4]
+    assert "manus" in called_urls[0]
+    assert "gemini-2.5-flash" in called_urls[1]
+    assert "gemini-2.5-flash-lite" in called_urls[2]
+    assert "gemma-4-31b-it" in called_urls[3]
+    assert "gemma-4-26b-a4b-it" in called_urls[4]
     
     captured = capsys.readouterr()
     stdout = captured.out
     
     # Assert logs contain the correct routing priority
     assert "provider_attempt=manus" in stdout
-    assert "provider_failed=429" in stdout
-    assert "fallback_to=gemma-4-31b-it" in stdout
-    
-    assert "provider_attempt=gemma-4-31b-it" in stdout
-    assert "provider_failed=429" in stdout
-    assert "fallback_to=gemma-4-26b-a4b-it" in stdout
-    
-    assert "provider_attempt=gemma-4-26b-a4b-it" in stdout
     assert "provider_failed=429" in stdout
     assert "fallback_to=gemini-2.5-flash" in stdout
     
@@ -275,6 +290,14 @@ async def test_full_manus_routing_chain(monkeypatch, capsys):
     assert "fallback_to=gemini-2.5-flash-lite" in stdout
     
     assert "provider_attempt=gemini-2.5-flash-lite" in stdout
+    assert "provider_failed=429" in stdout
+    assert "fallback_to=gemma-4-31b-it" in stdout
+    
+    assert "provider_attempt=gemma-4-31b-it" in stdout
+    assert "provider_failed=429" in stdout
+    assert "fallback_to=gemma-4-26b-a4b-it" in stdout
+    
+    assert "provider_attempt=gemma-4-26b-a4b-it" in stdout
     assert "provider_failed=429" in stdout
     assert "fallback_to=mock-fallback" in stdout
     

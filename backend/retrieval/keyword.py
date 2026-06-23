@@ -4,8 +4,9 @@ Sparse retrieval for keyword-based search.
 """
 
 import math
-import structlog
 from collections import Counter
+
+import structlog
 
 logger = structlog.get_logger()
 

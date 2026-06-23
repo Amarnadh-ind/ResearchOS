@@ -9,9 +9,9 @@ RULE-4: All citations must be verified
 import structlog
 
 from agents.base import BaseAgent
-from services.llm import get_llm_client
 from config.models import AgentRole
 from schemas.agents import CitationEntry, CitationOutput
+from services.llm import get_llm_client
 
 logger = structlog.get_logger()
 

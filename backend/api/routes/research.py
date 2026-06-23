@@ -6,15 +6,17 @@ GET /api/research/{session_id}/paper — Get generated paper
 GET /api/research — List recent sessions
 """
 
-import uuid
 import asyncio
+import uuid
+
 import structlog
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Response
+from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
-from schemas.research import ResearchRequest, ResearchResponse, ResearchStatus
-from memory.session import get_session_memory
-from memory.metadata import get_metadata_store
 from graph.workflow import get_research_workflow
+from memory.metadata import get_metadata_store
+from memory.session import get_session_memory
+from schemas.research import ResearchRequest, ResearchResponse, ResearchStatus
 
 logger = structlog.get_logger()
 router = APIRouter(prefix="/api/research", tags=["research"])
@@ -24,16 +26,39 @@ _active_tasks: dict[str, asyncio.Task] = {}
 
 
 async def _run_research_pipeline(session_id: str, request: ResearchRequest):
-    """Execute the full research pipeline in the background."""
+    """Execute the full research pipeline in the background.
+    Includes timing telemetry and hard 10-minute deadline."""
+    import time
+
     session_mem = get_session_memory()
     metadata = get_metadata_store()
+    pipeline_start = time.monotonic()
+    MAX_DURATION_SECONDS = 600  # 10 minutes
 
+    from config.settings import active_session_id_var, active_topic_var
     from services.mock_llm import extract_topic
-    from config.settings import active_topic_var, active_session_id_var
 
     topic = extract_topic(request.prompt)
     active_topic_var.set(topic)
     active_session_id_var.set(session_id)
+
+    # Node-to-metric mapping for timing telemetry
+    PHASE_MAP = {
+        "planner": "planner_ms",
+        "search": "search_ms",
+        "firecrawl_extract": "firecrawl_ms",
+        "reader": "reader_ms",
+        "claim_extractor": "claim_extractor_ms",
+        "critic": "critic_ms",
+        "citation_novelty": "citation_ms",
+        "writer": "writer_ms",
+        "critic_paper": "critic_paper_ms",
+        "writer_revision": "writer_revision_ms",
+        "ieee_formatter": "ieee_formatter_ms",
+        "humanizer": "humanizer_ms",
+        "page_validator": "pdf_ms",
+    }
+    phase_timings: dict[str, int] = {}
 
     try:
         # Update status
@@ -62,74 +87,164 @@ async def _run_research_pipeline(session_id: str, request: ResearchRequest):
             "status": "planning",
             "current_agent": "planner",
             "events": [],
+            "firecrawl_requests": 0,
+            "firecrawl_success": 0,
+            "firecrawl_failed": 0,
+            "firecrawl_latency_ms": 0,
+            "pipeline_start_time": pipeline_start,
+            "timing": {},
         }
 
         # Run the workflow
         final_state = None
+        paper_finalized = False
         async for state in workflow.astream(initial_state):
+            now = time.monotonic()
+            elapsed = now - pipeline_start
+
+            # ── Hard stop: if over 10 minutes, finalize current state ──
+            if elapsed > MAX_DURATION_SECONDS:
+                logger.warning(
+                    "HARD_DEADLINE_REACHED",
+                    session_id=session_id,
+                    elapsed_seconds=round(elapsed, 1),
+                )
+                # Take whatever state we have and finalize
+                final_node_output = None
+                for node_name, node_output in state.items():
+                    final_node_output = node_output
+                if final_node_output and not paper_finalized:
+                    # Try to finalize with whatever paper we have
+                    await _finalize_paper(session_id, final_node_output, request, final_state, phase_timings, pipeline_start)
+                    paper_finalized = True
+                break
+
             # state is a dict with node name -> output
             for node_name, node_output in state.items():
                 status = node_output.get("status", "")
                 current_agent = node_output.get("current_agent", "")
+
+                # ── Timing: record phase completion ──
+                if node_name in PHASE_MAP:
+                    metric = PHASE_MAP[node_name]
+                    phase_timings[metric] = int((now - pipeline_start) * 1000)
 
                 # Push events to session memory
                 for event in node_output.get("events", []):
                     event["session_id"] = session_id
                     await session_mem.push_event(session_id, event)
 
-                # Update status
-                if status:
-                    await session_mem.set_state(session_id, {
-                        "status": status,
-                        "current_agent": current_agent,
-                    })
-                    await metadata.update_session_status(session_id, status)
+                # If this node completed the pipeline, finalize paper BEFORE marking status completed
+                if status == "completed" and node_output.get("final_paper") and not paper_finalized:
+                    await _finalize_paper(session_id, node_output, request, node_output, phase_timings, pipeline_start)
+                    paper_finalized = True
+                else:
+                    # Update status for intermediate nodes
+                    if status:
+                        await session_mem.set_state(session_id, {
+                            "status": status,
+                            "current_agent": current_agent,
+                        })
+                        await metadata.update_session_status(session_id, status)
 
                 final_state = node_output
 
-        # Store final paper
-        if final_state and final_state.get("status") == "completed":
-            paper = final_state.get("final_paper", {})
-            validation = final_state.get("validation", {})
-            if paper:
-                await metadata.store_paper(
-                    session_id=session_id,
-                    title=paper.get("title", ""),
-                    abstract=paper.get("abstract", ""),
-                    sections=paper.get("sections", []),
-                    references=paper.get("references", []),
-                    content_md=paper.get("content_markdown", ""),
-                    layout=request.layout,
-                    font=request.font,
-                )
-                # Also cache paper in session memory for the /paper endpoint
-                paper["layout"] = request.layout
-                paper["font"] = request.font
-                paper["visual_mode"] = request.visual_mode
-                await session_mem.set_agent_output(session_id, "ieee_formatter", paper)
-
-                logger.info(
-                    "paper_save_log",
-                    session_id=session_id,
-                    final_paper_length=len(paper.get("content_markdown", "")),
-                    output_path=f"/api/research/{session_id}/paper",
-                    save_status="success",
-                )
-
-            await metadata.update_session_status(session_id, "completed")
-            await session_mem.set_state(session_id, {
-                "status": "completed",
-                "validation": validation,
-            })
-            logger.info("research_completed", session_id=session_id)
+        # Store final paper if not already finalized (e.g., hard deadline or partial completion)
+        if final_state and final_state.get("status") == "completed" and not paper_finalized:
+            await _finalize_paper(session_id, final_state, request, final_state, phase_timings, pipeline_start)
+        elif not paper_finalized:
+            # Report timing even on partial completion
+            timing_report = _build_timing_report(phase_timings, pipeline_start)
+            logger.info("research_timing_report", session_id=session_id, timing=timing_report)
 
     except Exception as e:
         logger.error("research_failed", session_id=session_id, error=str(e))
         await metadata.update_session_status(session_id, "failed", error=str(e))
         await session_mem.set_state(session_id, {"status": "failed", "error": str(e)})
+        # Report timing on failure too
+        timing_report = _build_timing_report(phase_timings, pipeline_start)
+        logger.info("research_timing_report_on_failure", session_id=session_id, timing=timing_report)
 
     finally:
         _active_tasks.pop(session_id, None)
+
+
+async def _finalize_paper(
+    session_id: str,
+    final_state: dict,
+    request: ResearchRequest,
+    final_state_override: dict | None = None,
+    phase_timings: dict | None = None,
+    pipeline_start: float | None = None,
+):
+    """Store the final paper and timing report."""
+    session_mem = get_session_memory()
+    metadata = get_metadata_store()
+
+    paper = final_state.get("final_paper", {})
+    validation = final_state.get("validation", {})
+    if not paper:
+        logger.warning("finalize_no_paper_data", session_id=session_id)
+        return
+
+    await metadata.store_paper(
+        session_id=session_id,
+        title=paper.get("title", ""),
+        abstract=paper.get("abstract", ""),
+        sections=paper.get("sections", []),
+        references=paper.get("references", []),
+        content_md=paper.get("content_markdown", ""),
+        layout=request.layout,
+        font=request.font,
+    )
+    # Also cache paper in session memory for the /paper endpoint
+    paper["layout"] = request.layout
+    paper["font"] = request.font
+    paper["visual_mode"] = request.visual_mode
+    await session_mem.set_agent_output(session_id, "ieee_formatter", paper)
+
+    # ── Timing Report ──
+    timing_report = _build_timing_report(phase_timings, pipeline_start)
+    paper["timing_report"] = timing_report
+
+    logger.info(
+        "paper_save_log",
+        session_id=session_id,
+        final_paper_length=len(paper.get("content_markdown", "")),
+        output_path=f"/api/research/{session_id}/paper",
+        save_status="success",
+        timing=timing_report,
+    )
+
+    await metadata.update_session_status(session_id, "completed")
+    await session_mem.set_state(session_id, {
+        "status": "completed",
+        "validation": validation,
+        "timing_report": timing_report,
+    })
+    logger.info("research_completed_with_timing", session_id=session_id, timing=timing_report)
+
+
+def _build_timing_report(
+    phase_timings: dict[str, int] | None,
+    pipeline_start: float | None,
+) -> dict:
+    """Build the timing telemetry report."""
+    import time
+
+    total_ms = int((time.monotonic() - (pipeline_start or time.monotonic())) * 1000) if pipeline_start else 0
+
+    return {
+        "total_ms": total_ms,
+        "total_seconds": round(total_ms / 1000, 1),
+        "planner_ms": (phase_timings or {}).get("planner_ms", 0),
+        "search_ms": (phase_timings or {}).get("search_ms", 0),
+        "reader_ms": (phase_timings or {}).get("reader_ms", 0),
+        "writer_ms": (phase_timings or {}).get("writer_ms", 0),
+        "citation_ms": (phase_timings or {}).get("citation_ms", 0),
+        "humanizer_ms": (phase_timings or {}).get("humanizer_ms", 0),
+        "pdf_ms": (phase_timings or {}).get("pdf_ms", 0),
+    }
 
 
 async def clean_session():
@@ -297,25 +412,8 @@ async def _get_paper_data(session_id: str):
     # Get paper data from agent output cache
     paper_data = await session_mem.get_agent_output(session_id, "ieee_formatter")
     if not paper_data:
-        # Fallback to DB
-        try:
-            if metadata._using_fallback:
-                for pid, paper in metadata._memory._papers.items():
-                    if paper.get("session_id") == session_id:
-                        paper_data = paper
-                        break
-            else:
-                from sqlalchemy import text
-                async with metadata._session_factory() as db:
-                    result = await db.execute(
-                        text("SELECT * FROM papers WHERE session_id = :sid ORDER BY id DESC LIMIT 1"),
-                        {"sid": session_id},
-                    )
-                    row = result.mappings().first()
-                    if row:
-                        paper_data = dict(row)
-        except Exception:
-            pass
+        # Fallback to metadata store (handles both in-memory and postgres)
+        paper_data = await _fetch_paper_from_metadata(metadata, session_id)
 
     if not paper_data:
         raise HTTPException(status_code=404, detail="Paper not found or not ready yet")
@@ -325,6 +423,27 @@ async def _get_paper_data(session_id: str):
         paper_data["content_markdown"] = paper_data["content_md"]
 
     return paper_data
+
+
+async def _fetch_paper_from_metadata(metadata, session_id: str) -> dict | None:
+    """Fetch paper from metadata store, handling both backends."""
+    try:
+        paper = await metadata.get_paper_by_session(session_id)
+        if paper:
+            return paper
+    except Exception:
+        pass
+
+    # Direct fallback for in-memory backend
+    try:
+        if hasattr(metadata, '_using_fallback') and metadata._using_fallback:
+            for pid, paper in metadata._memory._papers.items():
+                if paper.get("session_id") == session_id:
+                    return paper
+    except Exception:
+        pass
+
+    return None
 
 
 @router.get("/{session_id}/preview")
@@ -338,9 +457,13 @@ async def get_paper_preview(session_id: str, layout: str = "2 Column", font: str
     paper_data = await _get_paper_data(session_id)
 
     from services.pdf_generator import (
-        HTML_TEMPLATE, _build_sections_html,
-        KATEX_CSS_CDN, KATEX_JS_CDN, KATEX_AUTO_CDN,
-        _escape_html, _font_css_from_name,
+        HTML_TEMPLATE,
+        KATEX_AUTO_INLINE,
+        KATEX_CSS_INLINE,
+        KATEX_JS_INLINE,
+        _build_sections_html,
+        _escape_html,
+        _font_css_from_name,
     )
 
     title = _escape_html(paper_data.get("title", "Research Paper"))
@@ -388,12 +511,27 @@ async def get_paper_preview(session_id: str, layout: str = "2 Column", font: str
         column_count=column_count,
         content_html=content_html,
         references_html=references_html,
-        katex_css=KATEX_CSS_CDN,
-        katex_js=KATEX_JS_CDN,
-        katex_auto=KATEX_AUTO_CDN,
+        katex_css_inline=KATEX_CSS_INLINE,
+        katex_js_inline=KATEX_JS_INLINE,
+        katex_auto_inline=KATEX_AUTO_INLINE,
     )
 
     return Response(content=full_html, media_type="text/html")
+
+
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=1, max=10),
+    retry=retry_if_exception_type((RuntimeError, IOError, OSError)),
+)
+async def _compile_pdf_with_retry(paper_data: dict, layout: str, font: str) -> bytes:
+    """Compile paper to PDF with endpoint-level retry."""
+    from services.pdf_generator import PDFGenerator
+    return await PDFGenerator.compile_paper_to_pdf(
+        paper_data=paper_data,
+        layout=layout,
+        font=font,
+    )
 
 
 @router.get("/{session_id}/pdf")
@@ -402,11 +540,10 @@ async def get_paper_pdf(session_id: str, layout: str = "2 Column", font: str = "
     paper_data = await _get_paper_data(session_id)
 
     try:
-        from services.pdf_generator import PDFGenerator
-        pdf_bytes = await PDFGenerator.compile_paper_to_pdf(
+        pdf_bytes = await _compile_pdf_with_retry(
             paper_data=paper_data,
             layout=layout,
-            font=font
+            font=font,
         )
         return Response(
             content=pdf_bytes,
@@ -422,13 +559,12 @@ async def get_paper_pdf(session_id: str, layout: str = "2 Column", font: str = "
 async def compile_custom_pdf(session_id: str, paper_data: dict):
     """Compile a user-edited paper state directly to PDF."""
     try:
-        from services.pdf_generator import PDFGenerator
         layout = paper_data.get("layout", "2 Column")
         font = paper_data.get("font", "Times New Roman")
-        pdf_bytes = await PDFGenerator.compile_paper_to_pdf(
+        pdf_bytes = await _compile_pdf_with_retry(
             paper_data=paper_data,
             layout=layout,
-            font=font
+            font=font,
         )
         return Response(
             content=pdf_bytes,
@@ -488,6 +624,10 @@ async def get_diagnostics(session_id: str):
         "citation_agent_input": state.get("citation_agent_input", {}),
         "citation_agent_output": state.get("citation_agent_output", {}),
         "citation_agent_error": state.get("citation_agent_error", ""),
+        "firecrawl_requests": state.get("firecrawl_requests", 0),
+        "firecrawl_success": state.get("firecrawl_success", 0),
+        "firecrawl_failed": state.get("firecrawl_failed", 0),
+        "firecrawl_latency_ms": state.get("firecrawl_latency_ms", 0),
         "executions": executions,
     }
 

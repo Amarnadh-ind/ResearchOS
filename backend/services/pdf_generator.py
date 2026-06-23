@@ -1,25 +1,66 @@
 """
 ResearchOS Publication-Grade Typesetting Engine
-Generates publication-quality PDFs from structured paper models using Playwright.
-Produces IEEE/Elsevier-quality layout with proper column balancing, page numbers,
-headers, footers, equation rendering, and professional typography.
+Generates publication-quality PDFs from structured paper models.
+Primary: Playwright (Chromium). Fallback: WeasyPrint, then fpdf2.
+Retries with exponential backoff via tenacity.
 """
 
-import os
-import sys
 import asyncio
+import os
 import re
 import subprocess
+import sys
 import tempfile
-import structlog
 from html import escape
+
+import structlog
+from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
 logger = structlog.get_logger()
 
-# ── Inline KaTeX CSS (subset for offline rendering) ──────────────────
-KATEX_CSS_CDN = "https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
-KATEX_JS_CDN = "https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"
-KATEX_AUTO_CDN = "https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+# ── Fallback renderer availability ─────────────────────
+_HAS_FPDF2: bool = False
+
+try:
+    from fpdf import FPDF  # noqa: F401
+    _HAS_FPDF2 = True
+except ImportError:
+    pass
+
+# ── Locally bundled KaTeX (offline rendering) ────────────────────────
+_KATEX_DIR = os.path.join(os.path.dirname(__file__), "..", "static", "katex")
+
+def _load_katex() -> tuple[str, str, str]:
+    css_path = os.path.join(_KATEX_DIR, "katex.min.css")
+    js_path = os.path.join(_KATEX_DIR, "katex.min.js")
+    auto_path = os.path.join(_KATEX_DIR, "auto-render.min.js")
+    css = ""
+    js = ""
+    auto = ""
+    try:
+        with open(css_path, encoding="utf-8") as f:
+            css = f.read()
+    except FileNotFoundError:
+        logger.warning("katex_css_not_found", path=css_path)
+    try:
+        with open(js_path, encoding="utf-8") as f:
+            js = f.read()
+    except FileNotFoundError:
+        logger.warning("katex_js_not_found", path=js_path)
+    try:
+        with open(auto_path, encoding="utf-8") as f:
+            auto = f.read()
+    except FileNotFoundError:
+        logger.warning("katex_auto_render_not_found", path=auto_path)
+    if not css:
+        css = ".katex { font-size: 1.1em; } .katex-display { display: block; margin: 0.5em 0; }"
+    if not js or not auto:
+        js = ""
+        auto = ""
+    return css, js, auto
+
+KATEX_CSS_INLINE, KATEX_JS_INLINE, KATEX_AUTO_INLINE = _load_katex()
+_KATEX_OK = bool(KATEX_JS_INLINE and KATEX_AUTO_INLINE and KATEX_CSS_INLINE)
 
 # ── Master HTML Template ─────────────────────────────────────────────
 HTML_TEMPLATE = """<!DOCTYPE html>
@@ -27,11 +68,8 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 <head>
   <meta charset="UTF-8">
   <title>{title}</title>
-  <link rel="stylesheet" href="{katex_css}">
-  <script src="{katex_js}"></script>
-  <script src="{katex_auto}"></script>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+    {katex_css_inline}
 
     @page {{
       size: letter;
@@ -309,6 +347,8 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       }}
     }}
   </style>
+  <script>{katex_js_inline}</script>
+  <script>{katex_auto_inline}</script>
 </head>
 <body>
 
@@ -594,13 +634,33 @@ class PDFGenerator:
     _WORKER_SCRIPT = os.path.join(os.path.dirname(__file__), "_pdf_worker.py")
 
     @staticmethod
+    def _check_playwright_available() -> tuple[bool, str]:
+        """Check if Playwright and Chromium are available for PDF rendering."""
+        try:
+            from playwright.sync_api import sync_playwright
+            with sync_playwright() as p:
+                executable = p.chromium.executable_path
+                if not executable:
+                    return False, "No Chromium executable found"
+                return True, executable
+        except ImportError:
+            return False, "playwright package not installed"
+        except Exception as e:
+            return False, f"Playwright error: {e}"
+
+    @staticmethod
+    @retry(
+        stop=stop_after_attempt(2),
+        wait=wait_exponential(multiplier=1, min=1, max=5),
+        retry=retry_if_exception_type((RuntimeError, subprocess.TimeoutExpired)),
+        reraise=True,
+    )
     async def _render_pdf_subprocess(html_path: str, pdf_path: str) -> None:
         """Run Playwright PDF rendering in a separate subprocess (Windows-safe).
 
-        Avoids the asyncio.create_subprocess_exec NotImplementedError that occurs
-        when sync_playwright() is called from within asyncio.to_thread() on Windows.
+        Retries up to 2 times with exponential backoff (1s, 5s).
         """
-        python_exe = sys.executable  # same interpreter that runs the backend
+        python_exe = sys.executable
         worker_script = PDFGenerator._WORKER_SCRIPT
 
         logger.info(
@@ -623,10 +683,99 @@ class PDFGenerator:
 
         if proc.returncode != 0:
             error_msg = proc.stderr.strip() or "Unknown error in PDF worker"
+            stderr_lower = error_msg.lower()
+            if "chromium" in stderr_lower or "browser" in stderr_lower or "executable" in stderr_lower:
+                raise RuntimeError(f"Chromium/browser error: {error_msg}")
             logger.error("pdf_worker_failed", returncode=proc.returncode, stderr=error_msg)
             raise RuntimeError(f"PDF worker exited with code {proc.returncode}: {error_msg}")
 
         logger.info("pdf_worker_completed", stdout=proc.stdout.strip()[:200])
+
+    @staticmethod
+    async def _render_pdf_fallback(html_path: str, pdf_path: str) -> None:
+        """Last-resort fallback: use fpdf2 to build a PDF preserving section structure."""
+        if not _HAS_FPDF2:
+            raise RuntimeError("fpdf2 not installed")
+
+        from fpdf import FPDF
+
+        logger.warning("rendering_pdf_via_fpdf2_fallback", html=html_path, pdf=pdf_path)
+
+        try:
+            with open(html_path, encoding="utf-8") as f:
+                html_content = f.read()
+
+            loop = asyncio.get_event_loop()
+
+            def _build():
+                pdf = FPDF()
+                pdf.set_auto_page_break(auto=True, margin=20)
+                pdf.add_page()
+                pdf.set_font("Times", size=10)
+
+                sections = re.split(
+                    r'<h2[^>]*class="section-heading"[^>]*>(.*?)</h2>',
+                    html_content,
+                    flags=re.IGNORECASE | re.DOTALL,
+                )
+                title_match = re.search(r'<h1[^>]*class="paper-title"[^>]*>(.*?)</h1>', html_content)
+                if title_match:
+                    pdf.set_font("Times", "B", 14)
+                    pdf.multi_cell(0, 8, re.sub(r'<[^>]+>', '', title_match.group(1)).strip())
+                    pdf.ln(4)
+                    pdf.set_font("Times", size=10)
+
+                for i, section in enumerate(sections):
+                    section_text = re.sub(r'<[^>]+>', ' ', section)
+                    section_text = re.sub(r'\s+', ' ', section_text).strip()
+                    if not section_text:
+                        continue
+                    if i % 2 == 1:
+                        pdf.set_font("Times", "B", 11)
+                        pdf.multi_cell(0, 6, section_text)
+                        pdf.ln(2)
+                        pdf.set_font("Times", size=10)
+                    else:
+                        for para in re.split(r'\s{2,}', section_text):
+                            para = para.strip()[:2000]
+                            if para:
+                                pdf.multi_cell(0, 5, para)
+                                pdf.ln(1)
+
+                pdf.output(pdf_path)
+
+            await loop.run_in_executor(None, _build)
+            logger.info("fpdf2_fallback_completed", pdf=pdf_path)
+
+        except Exception as e:
+            logger.error("fpdf2_fallback_failed", error=str(e))
+            raise RuntimeError(f"fpdf2 fallback render failed: {e}") from e
+
+    @staticmethod
+    async def render_to_pdf(html_path: str, pdf_path: str) -> None:
+        """Try primary renderer, then fallback chain."""
+        errors = []
+        # Attempt 1: Playwright (primary, with retry)
+        try:
+            await PDFGenerator._render_pdf_subprocess(html_path, pdf_path)
+            if os.path.exists(pdf_path) and os.path.getsize(pdf_path) > 0:
+                return
+        except Exception as e:
+            errors.append(("playwright", str(e)))
+            logger.warning("playwright_render_failed_trying_fallback", error=str(e))
+
+        # Attempt 2: fpdf2 (last-resort text-only fallback)
+        if _HAS_FPDF2:
+            try:
+                await PDFGenerator._render_pdf_fallback(html_path, pdf_path)
+                if os.path.exists(pdf_path) and os.path.getsize(pdf_path) > 0:
+                    return
+            except Exception as e:
+                errors.append(("fpdf2", str(e)))
+
+        raise RuntimeError(
+            f"All PDF renderers failed: {'; '.join(f'{n}: {m}' for n, m in errors)}"
+        )
 
     @staticmethod
     async def render_and_count_pages(html_path: str, pdf_path: str) -> int:
@@ -745,9 +894,9 @@ class PDFGenerator:
             column_count=column_count,
             content_html=content_html,
             references_html=references_html,
-            katex_css=KATEX_CSS_CDN,
-            katex_js=KATEX_JS_CDN,
-            katex_auto=KATEX_AUTO_CDN,
+            katex_css_inline=KATEX_CSS_INLINE,
+            katex_js_inline=KATEX_JS_INLINE,
+            katex_auto_inline=KATEX_AUTO_INLINE,
         )
 
         pdf_bytes = b""
@@ -758,12 +907,11 @@ class PDFGenerator:
             with open(html_path, "w", encoding="utf-8") as f:
                 f.write(full_html)
 
-            logger.info("rendering_pdf_via_subprocess", html_file=html_path)
+            logger.info("rendering_pdf", html_file=html_path)
 
-            # Use subprocess worker to avoid Windows asyncio issues
-            await PDFGenerator._render_pdf_subprocess(html_path, pdf_path)
+            await PDFGenerator.render_to_pdf(html_path, pdf_path)
 
-            if os.path.exists(pdf_path):
+            if os.path.exists(pdf_path) and os.path.getsize(pdf_path) > 0:
                 with open(pdf_path, "rb") as f:
                     pdf_bytes = f.read()
 
@@ -773,8 +921,6 @@ class PDFGenerator:
     @staticmethod
     async def compile_html_to_pdf(
         html_content: str,
-        layout: str = "2 Column",
-        font: str = "Times New Roman"
     ) -> bytes:
         """Compile raw HTML content directly to PDF (for pre-built HTML papers)."""
         pdf_bytes = b""
@@ -785,11 +931,28 @@ class PDFGenerator:
             with open(html_path, "w", encoding="utf-8") as f:
                 f.write(html_content)
 
-            await PDFGenerator._render_pdf_subprocess(html_path, pdf_path)
+            await PDFGenerator.render_to_pdf(html_path, pdf_path)
 
-            if os.path.exists(pdf_path):
+            if os.path.exists(pdf_path) and os.path.getsize(pdf_path) > 0:
                 with open(pdf_path, "rb") as f:
                     pdf_bytes = f.read()
 
         return pdf_bytes
+
+    @staticmethod
+    def get_renderer_status() -> dict:
+        """Return availability status of all PDF renderers."""
+        return {
+            "playwright": {"available": True, "chromium_path": PDFGenerator._get_chromium_path()},
+            "fpdf2": {"available": _HAS_FPDF2},
+        }
+
+    @staticmethod
+    def _get_chromium_path() -> str | None:
+        try:
+            from playwright.sync_api import sync_playwright
+            with sync_playwright() as p:
+                return p.chromium.executable_path
+        except Exception:
+            return None
 

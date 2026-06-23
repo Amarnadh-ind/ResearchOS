@@ -9,26 +9,73 @@ Usage:
   Render+count:   python _pdf_worker.py render_count <html_path> <pdf_path>
 """
 
-import sys
 import json
+import sys
 import time
 
 
 def render(html_path: str, pdf_path: str) -> None:
-    from playwright.sync_api import sync_playwright
     import os
 
+    from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeout
+
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
-        context = browser.new_context()
+        try:
+            browser = p.chromium.launch(
+                headless=True,
+                args=[
+                    "--no-sandbox",
+                    "--disable-setuid-sandbox",
+                    "--disable-dev-shm-usage",
+                    "--disable-gpu",
+                ],
+            )
+        except Exception as e:
+            raise RuntimeError(f"Failed to launch Chromium: {e}") from e
+
+        context = browser.new_context(
+            viewport={"width": 816, "height": 1056},
+            locale="en-US",
+            timezone_id="America/New_York",
+        )
         page = context.new_page()
 
-        page.goto(
-            f"file:///{html_path.replace(os.sep, '/')}",
-            wait_until="networkidle",
-        )
-        # Allow KaTeX math rendering to finish
-        time.sleep(2.0)
+        try:
+            page.goto(
+                f"file:///{html_path.replace(os.sep, '/')}",
+                wait_until="networkidle",
+                timeout=30000,
+            )
+        except PlaywrightTimeout:
+            page.goto(
+                f"file:///{html_path.replace(os.sep, '/')}",
+                wait_until="domcontentloaded",
+                timeout=15000,
+            )
+
+        try:
+            page.wait_for_function(
+                "typeof renderMathInElement === 'function'",
+                timeout=5000,
+            )
+            page.evaluate("""() => {
+                return new Promise((resolve) => {
+                    if (document.querySelector('.katex')) {
+                        resolve(true);
+                        return;
+                    }
+                    const observer = new MutationObserver(() => {
+                        if (document.querySelector('.katex')) {
+                            observer.disconnect();
+                            resolve(true);
+                        }
+                    });
+                    observer.observe(document.body, { childList: true, subtree: true });
+                    setTimeout(() => { observer.disconnect(); resolve(false); }, 4000);
+                });
+            }""")
+        except Exception:
+            pass
 
         page.pdf(
             path=pdf_path,
@@ -53,20 +100,18 @@ def count_pages(pdf_path: str) -> int:
         with open(pdf_path, "rb") as f:
             data = f.read()
 
-        # Method 1: Look for /Type /Page (not /Pages)
+        if not data:
+            return 0
+
         import re
-        # Match /Type /Page or /Type/Page (with optional whitespace)
         pages = re.findall(rb'/Type\s*/Page[^s]', data)
         if pages:
             return len(pages)
 
-        # Method 2: Look for /Count in the page tree root
         count_match = re.search(rb'/Count\s+(\d+)', data)
         if count_match:
             return int(count_match.group(1))
 
-        # Method 3: Fallback — estimate from file size
-        # Average IEEE page ≈ 40-60KB in a Playwright PDF
         size_kb = len(data) / 1024
         estimated = max(1, int(size_kb / 50))
         return estimated
@@ -112,8 +157,6 @@ if __name__ == "__main__":
         print(json.dumps({"status": "ok", "command": "render_count", **result}))
 
     else:
-        # Backward compatibility: treat as render if no command given
-        # (old usage: python _pdf_worker.py <html_path> <pdf_path>)
         if len(sys.argv) == 3:
             render(sys.argv[1], sys.argv[2])
             print(json.dumps({"status": "ok", "command": "render"}))

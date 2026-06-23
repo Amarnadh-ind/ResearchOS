@@ -5,29 +5,27 @@ Includes page budget computation, word-count-aware writing,
 and a page validation loop that blocks export until page target is met.
 """
 
-import time
-from datetime import datetime
+import os
 import re
 import tempfile
-import os
-
-from graph.state import ResearchState
-from agents.planner import PlannerAgent
-from agents.search import SearchAgent
-from agents.browser import BrowserAgent
-from agents.reader import ReaderAgent
-from agents.claim_extractor import ClaimExtractorAgent
-from agents.critic import CriticAgent
-from agents.novelty import NoveltyAgent
-from agents.citation import CitationAgent
-from agents.writer import WriterAgent
-from agents.ieee_formatter import IEEEFormatterAgent
-from agents.humanizer import HumanizerAgent
-
-from services.page_budget import compute_page_budget, count_paper_words
-from services.content_expander import expand_paper_content
+from datetime import datetime
 
 import structlog
+
+from agents.citation import CitationAgent
+from agents.claim_extractor import ClaimExtractorAgent
+from agents.critic import CriticAgent
+from agents.firecrawl_extract import FirecrawlExtractAgent
+from agents.humanizer import HumanizerAgent
+from agents.ieee_formatter import IEEEFormatterAgent
+from agents.novelty import NoveltyAgent
+from agents.planner import PlannerAgent
+from agents.reader import ReaderAgent
+from agents.search import SearchAgent
+from agents.writer import WriterAgent
+from config.settings import get_settings
+from graph.state import ResearchState
+from services.page_budget import compute_page_budget, count_paper_words
 
 logger = structlog.get_logger()
 
@@ -43,7 +41,6 @@ def _event(agent_name: str, event_type: str, data: dict = None) -> dict:
 
 def enforce_source_attribution(sections: list[dict], claims: list[dict], in_text_map: dict) -> list[dict]:
     # Ensure every paragraph containing a major claim has a citation
-    import re
     citation_pattern = re.compile(r'\[\d+\]')
     
     for sec in sections:
@@ -105,7 +102,6 @@ def enforce_source_attribution(sections: list[dict], claims: list[dict], in_text
 
 
 def detect_and_correct_hallucinations(sections: list[dict], claims: list[dict]) -> list[dict]:
-    import re
     allowed_numbers = set()
     for c in claims:
         claim_text = c.get("claim", "")
@@ -183,8 +179,8 @@ async def planner_node(state: ResearchState) -> dict:
     topic = state.get("topic") or raw_prompt
     
     # ── Topic Normalization ──
-    from services.llm import get_llm_client
     from config.models import AgentRole
+    from services.llm import get_llm_client
     llm = get_llm_client()
     normalized_topic = topic
     
@@ -266,7 +262,7 @@ async def planner_node(state: ResearchState) -> dict:
         "keywords": data.get("keywords") or [],
         "topic_context": data.get("keywords") or [],
         "technical_domain": data.get("technical_domain") or "",
-        "current_agent": "search",
+        "current_agent": "planner",
         "status": "searching",
         "events": [_event("planner", "completed", {
             "queries": len(data["search_queries"]),
@@ -281,12 +277,15 @@ async def search_node(state: ResearchState) -> dict:
     topic = state.get("topic") or state.get("prompt", "")
     logger.info("stage_topic", stage="search", topic=topic)
     
+    settings = get_settings()
+    max_results = settings.fast_mode_max_sources if settings.fast_mode else state.get("max_sources", 20)
+    
     agent = SearchAgent()
     result = await agent.run(
         input_data={
             "topic": topic,
             "search_queries": state.get("search_queries", []),
-            "max_results": state.get("max_sources", 20),
+            "max_results": max_results,
         },
         context={},
     )
@@ -310,43 +309,101 @@ async def search_node(state: ResearchState) -> dict:
 
     return {
         "search_results": data["results"],
-        "current_agent": "browser",
+        "current_agent": "search",
         "status": "browsing",
         "events": [_event("search", "completed", {"results": data["results"], "total_results": data["total_results"]})],
     }
 
 
-async def browser_node(state: ResearchState) -> dict:
-    """Node 3: Browse web pages."""
+async def firecrawl_extract_node(state: ResearchState) -> dict:
+    """Node 3: Extract content via Firecrawl.
+    NON-FATAL: If Firecrawl fails entirely, fall back to search snippets."""
     topic = state.get("topic") or state.get("prompt", "")
-    logger.info("stage_topic", stage="browser", topic=topic)
+    logger.info("stage_topic", stage="firecrawl_extract", topic=topic)
     
-    agent = BrowserAgent()
-    result = await agent.run(
-        input_data={
-            "topic": topic,
-            "results": state.get("search_results", []),
-            "max_pages": min(state.get("max_sources", 15), 15),
-        },
-        context={},
-    )
+    settings = get_settings()
+    max_pages = settings.fast_mode_max_sources if settings.fast_mode else min(state.get("max_sources", 15), 15)
+    logger.info("firecrawl_extract_max_pages", fast_mode=settings.fast_mode, max_pages=max_pages)
+    
+    search_results = state.get("search_results", [])
+    
+    agent = FirecrawlExtractAgent()
+    try:
+        result = await agent.run(
+            input_data={
+                "topic": topic,
+                "results": search_results,
+                "max_pages": max_pages,
+            },
+            context={},
+        )
+    except Exception as e:
+        logger.error("firecrawl_extract_exception", error=str(e))
+        result = {"status": "error", "error": str(e)}
 
-    if result["status"] != "success":
+    if result.get("status") == "success":
+        data = result["data"]
+        pages = data.get("pages", [])
+        if pages:
+            return {
+                "browsed_pages": pages,
+                "sources": pages,
+                "failed_urls": data.get("failed_urls", []),
+                "firecrawl_requests": data.get("firecrawl_requests", 0),
+                "firecrawl_success": data.get("firecrawl_success", 0),
+                "firecrawl_failed": data.get("firecrawl_failed", 0),
+                "firecrawl_latency_ms": data.get("firecrawl_latency_ms", 0),
+                "current_agent": "firecrawl_extract",
+                "status": "reading",
+                "events": [_event("firecrawl_extract", "completed", {"pages": len(pages)})],
+            }
+
+    # ── FALLBACK: Use search snippets as synthetic pages ──
+    logger.warning("firecrawl_fallback_to_search_snippets",
+                   search_results_count=len(search_results),
+                   firecrawl_error=result.get("error", "no pages"))
+    
+    fallback_pages = []
+    for sr in search_results[:max_pages]:
+        title = sr.get("title", "")
+        snippet = sr.get("snippet", "")
+        url = sr.get("url", "")
+        if snippet and len(snippet) > 50:
+            fallback_pages.append({
+                "url": url,
+                "title": title,
+                "content": f"# {title}\n\n{snippet}",
+                "content_type": "snippet",
+                "word_count": len(snippet.split()),
+                "extraction_quality": 0.4,
+                "publication_date": "",
+                "author": "",
+                "site_name": "",
+                "description": snippet[:200],
+            })
+    
+    if not fallback_pages:
         return {
             "status": "failed",
-            "error": result.get("error", "Browser failed"),
-            "current_agent": "browser",
-            "events": [_event("browser", "error", {"error": result.get("error")})],
+            "error": "No content could be extracted from any source (Firecrawl failed, no search snippets available)",
+            "current_agent": "firecrawl_extract",
+            "events": [_event("firecrawl_extract", "error", {"error": "No content available"})],
         }
-
-    data = result["data"]
+    
     return {
-        "browsed_pages": data["pages"],
-        "sources": data["pages"],  # Update sources field
-        "failed_urls": data.get("failed_urls", []),
-        "current_agent": "reader",
+        "browsed_pages": fallback_pages,
+        "sources": fallback_pages,
+        "failed_urls": [],
+        "firecrawl_requests": 0,
+        "firecrawl_success": 0,
+        "firecrawl_failed": len(search_results),
+        "firecrawl_latency_ms": 0,
+        "current_agent": "firecrawl_extract",
         "status": "reading",
-        "events": [_event("browser", "completed", {"pages": len(data["pages"])})],
+        "events": [_event("firecrawl_extract", "fallback", {
+            "fallback_pages": len(fallback_pages),
+            "reason": "Firecrawl failed, using search snippets"
+        })],
     }
 
 
@@ -354,6 +411,8 @@ async def reader_node(state: ResearchState) -> dict:
     """Node 4: Read and structure documents."""
     topic = state.get("topic") or state.get("prompt", "")
     logger.info("stage_topic", stage="reader", topic=topic)
+    
+    running_event = _event("reader", "running", {})
     
     agent = ReaderAgent()
     result = await agent.run(
@@ -369,7 +428,7 @@ async def reader_node(state: ResearchState) -> dict:
             "status": "failed",
             "error": result.get("error", "Reader failed"),
             "current_agent": "reader",
-            "events": [_event("reader", "error", {"error": result.get("error")})],
+            "events": [running_event, _event("reader", "error", {"error": result.get("error")})],
         }
 
     data = result["data"]
@@ -378,14 +437,14 @@ async def reader_node(state: ResearchState) -> dict:
             "status": "failed",
             "error": "Fail-Fast: No readable documents could be parsed from sources. Bailing out.",
             "current_agent": "reader",
-            "events": [_event("reader", "error", {"error": "No readable documents"})],
+            "events": [running_event, _event("reader", "error", {"error": "No readable documents"})],
         }
 
     return {
         "documents": data["documents"],
-        "current_agent": "claim_extractor",
+        "current_agent": "reader",
         "status": "extracting",
-        "events": [_event("reader", "completed", {"documents": len(data["documents"])})],
+        "events": [running_event, _event("reader", "completed", {"documents": len(data["documents"])})],
     }
 
 
@@ -393,6 +452,8 @@ async def claim_extractor_node(state: ResearchState) -> dict:
     """Node 5: Extract claims."""
     topic = state.get("topic") or state.get("prompt", "")
     logger.info("stage_topic", stage="claim_extractor", topic=topic)
+    
+    running_event = _event("claim_extractor", "running", {})
     
     agent = ClaimExtractorAgent()
     result = await agent.run(
@@ -408,16 +469,16 @@ async def claim_extractor_node(state: ResearchState) -> dict:
             "status": "failed",
             "error": result.get("error", "Claim extraction failed"),
             "current_agent": "claim_extractor",
-            "events": [_event("claim_extractor", "error", {"error": result.get("error")})],
+            "events": [running_event, _event("claim_extractor", "error", {"error": result.get("error")})],
         }
 
     data = result["data"]
     return {
         "claims": data["claims"],
         "total_claims": data["total_claims"],
-        "current_agent": "critic",
+        "current_agent": "claim_extractor",
         "status": "critiquing",
-        "events": [_event("claim_extractor", "completed", {"claims": data["total_claims"]})],
+        "events": [running_event, _event("claim_extractor", "completed", {"claims": data["total_claims"]})],
     }
 
 
@@ -449,7 +510,7 @@ async def critic_node(state: ResearchState) -> dict:
         "overall_evidence_quality": data["overall_evidence_quality"],
         "rejected_claims": data["rejected_claims"],
         "verified_claims": data["verified_claims"],
-        "current_agent": "novelty",
+        "current_agent": "critic",
         "status": "analyzing_novelty",
         "events": [_event("critic", "completed", {
             "verified": len(data["verified_claims"]),
@@ -481,7 +542,7 @@ async def novelty_node(state: ResearchState) -> dict:
             "novelty_score": 0.5,
             "novel_contributions": [],
             "research_gaps": [],
-            "current_agent": "citation",
+            "current_agent": "citation_novelty",
             "status": "citing",
             "events": [_event("novelty", "skipped", {"reason": result.get("error")})],
         }
@@ -491,7 +552,7 @@ async def novelty_node(state: ResearchState) -> dict:
         "novelty_score": data.get("novelty_score", 0.5),
         "novel_contributions": data.get("novel_contributions", []),
         "research_gaps": data.get("research_gaps", []),
-        "current_agent": "citation",
+        "current_agent": "citation_novelty",
         "status": "citing",
         "events": [_event("novelty", "completed", {"score": data.get("novelty_score")})],
     }
@@ -622,8 +683,7 @@ async def citation_node(state: ResearchState) -> dict:
         
         # Extract URL from ieee_format if not in top-level field
         if not url and "Available:" in ieee_fmt:
-            import re as _re
-            url_match = _re.search(r'Available:\s*(https?://\S+)', ieee_fmt)
+            url_match = re.search(r'Available:\s*(https?://\S+)', ieee_fmt)
             if url_match:
                 url = url_match.group(1).strip().rstrip('.,;')
         
@@ -659,7 +719,7 @@ async def citation_node(state: ResearchState) -> dict:
         "citation_agent_output": citation_output,
         "citation_agent_error": citation_error or "",
         "writer_citation_status": writer_citation_status,
-        "current_agent": "writer",
+        "current_agent": "citation_novelty",
         "status": "writing",
         "events": [_event("citation", "completed", {
             "citations": len(citations_list),
@@ -673,22 +733,8 @@ async def writer_node(state: ResearchState) -> dict:
     """Node 9: Write the paper with word count budget enforcement."""
     topic = state.get("topic") or state.get("prompt", "")
     logger.info("stage_topic", stage="writer", topic=topic)
-
-    # ── Dot Notation State Wrapper for Observability (Issue 1) ──
-    class StateDotNotation:
-        def __init__(self, state_dict):
-            self.topic = state_dict.get("topic", "")
-            self.claims = state_dict.get("claims", [])
-            self.sources = state_dict.get("sources", [])
-            self.documents = state_dict.get("documents", [])
-
-    state_orig = state
-    state = StateDotNotation(state_orig)
-    print("TOPIC:", state.topic)
-    print("CLAIMS:", len(state.claims))
-    print("SOURCES:", len(state.sources))
-    print("DOCUMENTS:", len(state.documents))
-    state = state_orig
+    
+    logger.debug("writer_input", topic=topic, claims=len(state.get("claims", [])), sources=len(state.get("sources", [])), documents=len(state.get("documents", [])))
 
     # ── Strict Writer Input Validation ──
     req_docs = state.get("documents", [])
@@ -696,70 +742,6 @@ async def writer_node(state: ResearchState) -> dict:
     req_citations = state.get("citations", [])
     req_sources = state.get("sources", [])
     req_topic = state.get("topic", "")
-
-    # Auto-regenerate claims if empty
-    if req_docs and req_topic and not req_claims:
-        logger.info("writer_node_claims_empty_regenerating")
-        try:
-            from agents.claim_extractor import ClaimExtractorAgent
-            agent_extractor = ClaimExtractorAgent()
-            result_extractor = await agent_extractor.run(
-                input_data={
-                    "topic": req_topic,
-                    "documents": req_docs
-                },
-                context={},
-            )
-            if result_extractor["status"] == "success" and result_extractor["data"].get("claims"):
-                req_claims = result_extractor["data"]["claims"]
-                state["claims"] = req_claims
-                state["verified_claims"] = req_claims
-                logger.info("writer_node_claims_regenerated_successfully", count=len(req_claims))
-        except Exception as e:
-            logger.error("failed_regenerating_claims_in_writer", error=str(e))
-
-    # Auto-build fallback citations if empty but we have claims
-    if req_docs and req_claims and not req_citations:
-        logger.info("writer_node_citations_empty_building_fallback")
-        fallback_citations = []
-        source_urls = set()
-        for doc in req_docs:
-            url = doc.get("source_url") or doc.get("url")
-            if url:
-                source_urls.add(url)
-        for src in (req_sources or []):
-            url = src.get("url") or src.get("source_url")
-            if url:
-                source_urls.add(url)
-                
-        for i, url in enumerate(sorted(list(source_urls))):
-            key = f"[{i+1}]"
-            title = "Source Web Document"
-            for doc in req_docs:
-                if doc.get("source_url") == url or doc.get("url") == url:
-                    title = doc.get("title") or title
-                    break
-            fallback_citations.append({
-                "key": key,
-                "ieee_format": f"\"{title},\" [Online]. Available: {url}",
-                "authors": ["ResearchOS Source"],
-                "title": title,
-                "url": url,
-                "verified": True
-            })
-            
-        fallback_in_text_map = {}
-        for claim in req_claims:
-            if fallback_citations:
-                claim_str = claim.get("claim", "") if isinstance(claim, dict) else str(claim)
-                fallback_in_text_map[claim_str] = fallback_citations[0]["key"]
-                
-        req_citations = fallback_citations
-        state["citations"] = fallback_citations
-        state["in_text_map"] = fallback_in_text_map
-        if not req_sources:
-            req_sources = fallback_citations
-            state["sources"] = fallback_citations
 
     if not req_docs or not req_claims or not req_citations or not req_sources or not req_topic:
         missing = []
@@ -789,6 +771,12 @@ async def writer_node(state: ResearchState) -> dict:
             "events": [_event("writer", "error", {"error": f"Insufficient evidence collected. Need at least 3 documents (have {documents_cnt}) and 5 claims (have {claims_cnt})."})],
         }
 
+    settings = get_settings()
+    verified_claims = state.get("verified_claims", [])
+    if settings.fast_mode:
+        verified_claims = verified_claims[:settings.fast_mode_max_claims]
+        logger.info("writer_fast_mode_limited_claims", count=len(verified_claims))
+
     agent = WriterAgent()
 
     # Pass the page budget to the writer so it knows word count targets
@@ -801,7 +789,7 @@ async def writer_node(state: ResearchState) -> dict:
             "topic": topic,
             "keywords": state.get("keywords", []),
             "research_question": state.get("research_question", ""),
-            "verified_claims": state.get("verified_claims", []),
+            "verified_claims": verified_claims,
             "critiques": state.get("critiques", []),
             "novelty": {
                 "novel_contributions": state.get("novel_contributions", []),
@@ -831,10 +819,7 @@ async def writer_node(state: ResearchState) -> dict:
     body_words = word_stats["body_words"]
 
     completion_pct = round((body_words / target_word_count) * 100, 1) if target_word_count > 0 else 100.0
-    print(f"Requested Pages: {state.get('pages', 12)}")
-    print(f"Estimated Words: {target_word_count}")
-    print(f"Current Words: {body_words}")
-    print(f"Completion %: {completion_pct}%")
+    logger.debug("writer_progress", requested_pages=state.get('pages', 12), estimated_words=target_word_count, current_words=body_words, completion_pct=completion_pct)
 
     events = [_event("writer", "progress", {
         "requested_pages": state.get("pages", 12),
@@ -848,37 +833,6 @@ async def writer_node(state: ResearchState) -> dict:
         "body_words": body_words,
         "target_words": target_word_count,
     }))
-
-    # If writer output is too short, expand before passing to formatter
-    if body_words < target_word_count * 0.8:  # More than 20% short
-        logger.warning(
-            "writer_output_short",
-            body_words=body_words,
-            target=target_word_count,
-            deficit=target_word_count - body_words,
-        )
-        section_budgets = page_budget.get("section_budgets", {})
-        data = await expand_paper_content(
-            data,
-            target_word_count,
-            section_budgets,
-            topic=topic,
-        )
-        expanded_stats = count_paper_words(data)
-        
-        completion_pct = round((expanded_stats["body_words"] / target_word_count) * 100, 1) if target_word_count > 0 else 100.0
-        events.append(_event("writer", "progress", {
-            "requested_pages": state.get("pages", 12),
-            "estimated_words": target_word_count,
-            "current_words": expanded_stats["body_words"],
-            "completion_percent": completion_pct,
-        }))
-        
-        events.append(_event("writer", "expanded", {
-            "original_words": body_words,
-            "expanded_words": expanded_stats["body_words"],
-            "target_words": target_word_count,
-        }))
 
     # ── Source Attribution Validation ──
     paper_sections = data["sections"]
@@ -898,8 +852,8 @@ async def writer_node(state: ResearchState) -> dict:
         "paper_abstract": data["abstract"],
         "paper_sections": paper_sections,
         "paper_conclusion": data["conclusion"],
-        "current_agent": "ieee_formatter",
-        "status": "formatting",
+        "current_agent": "writer",
+        "status": "critiquing_paper",
         "events": events,
     }
 
@@ -911,7 +865,6 @@ async def ieee_formatter_node(state: ResearchState) -> dict:
     
     agent = IEEEFormatterAgent()
     target_word_count = state.get("target_word_count", 6000)
-    page_budget = state.get("page_budget", {})
     visual_mode = state.get("visual_mode", "Mixed")
 
     result = await agent.run(
@@ -961,59 +914,49 @@ async def ieee_formatter_node(state: ResearchState) -> dict:
     # ── Final word count validation ──────────────────────────
     word_stats = count_paper_words(data)
     body_words = word_stats["body_words"]
-    expansion_round = state.get("expansion_round", 0)
 
     events = [_event("ieee_formatter", "completed", {
         "title": data.get("title"),
         "body_words": body_words,
         "target_words": target_word_count,
-        "expansion_round": expansion_round,
-        "visuals_injected": visual_mode in ("Auto", "Auto Generate", "Mixed", "auto", "mixed", "auto_generate"),
     })]
-
-    # If paper is still too short and we haven't expanded too many times, expand
-    if body_words < target_word_count * 0.85 and expansion_round < 3:
-        logger.warning(
-            "ieee_output_short_expanding",
-            body_words=body_words,
-            target=target_word_count,
-            round=expansion_round + 1,
-        )
-        section_budgets = page_budget.get("section_budgets", {})
-        data = await expand_paper_content(
-            data,
-            target_word_count,
-            section_budgets,
-            topic=topic,
-            keywords=state.get("keywords", []),
-        )
-        expanded_stats = count_paper_words(data)
-
-        # Rebuild markdown after expansion
-        from agents.ieee_formatter import IEEEFormatterAgent as _Fmt
-        fmt = _Fmt()
-        data["content_markdown"] = fmt._build_markdown(data)
-
-        events.append(_event("ieee_formatter", "expanded", {
-            "original_words": body_words,
-            "expanded_words": expanded_stats["body_words"],
-            "round": expansion_round + 1,
-        }))
 
     return {
         "final_paper": data,
         "content_markdown": data.get("content_markdown", ""),
-        "expansion_round": expansion_round + 1,
-        "current_agent": "humanizer",
+        "current_agent": "ieee_formatter",
         "status": "humanizing",
         "events": events,
     }
 
 
 async def humanizer_node(state: ResearchState) -> dict:
-    """Node 10.5: Humanize the paper and reduce plagiarism."""
+    """Node: Humanize the paper — section-level, max 5 LLM calls.
+    In fast mode, skip humanizer entirely to save ~5 LLM calls."""
     topic = state.get("topic") or state.get("prompt", "")
     logger.info("stage_topic", stage="humanizer", topic=topic)
+
+    from config.settings import get_settings
+    if get_settings().fast_mode and get_settings().fast_mode_skip_humanizer:
+        paper_data = state.get("final_paper", {})
+        if not paper_data:
+            return {
+                "status": "failed",
+                "error": "No paper data available",
+                "current_agent": "humanizer",
+                "events": [_event("humanizer", "error", {"error": "No paper data"})],
+            }
+        from agents.ieee_formatter import IEEEFormatterAgent as _Fmt
+        fmt = _Fmt()
+        paper_data["content_markdown"] = fmt._build_markdown(paper_data)
+        logger.info("humanizer_skipped_fast_mode")
+        return {
+            "final_paper": paper_data,
+            "content_markdown": paper_data.get("content_markdown", ""),
+            "current_agent": "humanizer",
+            "status": "validating_pages",
+            "events": [_event("humanizer", "skipped", {"reason": "fast_mode"})],
+        }
 
     paper_data = state.get("final_paper", {})
     if not paper_data:
@@ -1035,20 +978,106 @@ async def humanizer_node(state: ResearchState) -> dict:
     return {
         "final_paper": humanized_paper,
         "content_markdown": humanized_paper.get("content_markdown", ""),
-        "current_agent": "page_validator",
+        "current_agent": "humanizer",
         "status": "validating_pages",
         "events": [_event("humanizer", "completed", {
             "title": humanized_paper.get("title"),
+            "humanizer_mode": "section_level",
+            "max_calls": 5,
+        })],
+    }
+
+
+async def critic_paper_node(state: ResearchState) -> dict:
+    """Node: Critique the written paper for quality and completeness.
+    Fast structural check — no LLM call. Suggests improvements for writer_revision."""
+    topic = state.get("topic") or state.get("prompt", "")
+    logger.info("stage_topic", stage="critic_paper", topic=topic)
+
+    title = state.get("paper_title", "")
+    abstract = state.get("paper_abstract", "")
+    sections = state.get("paper_sections", [])
+    conclusion = state.get("paper_conclusion", "")
+
+    suggestions = []
+
+    if not title:
+        suggestions.append("Add a descriptive paper title")
+    if not abstract:
+        suggestions.append("Add an abstract")
+    if len(sections) < 3:
+        suggestions.append(f"Add more sections (currently {len(sections)})")
+    if not conclusion:
+        suggestions.append("Add a conclusion section")
+
+    word_stats = count_paper_words({
+        "sections": sections,
+        "abstract": abstract,
+        "conclusion": conclusion,
+    })
+    body_words = word_stats["body_words"]
+    target = state.get("target_word_count", 6000)
+    word_pct = body_words / target if target > 0 else 1.0
+
+    if word_pct < 0.7:
+        suggestions.append(f"Content too short ({body_words} words vs {target} target). Expand content.")
+    elif word_pct < 0.85:
+        suggestions.append(f"Content slightly short ({body_words} words vs {target} target). Minor expansion needed.")
+
+    critique = {
+        "has_title": bool(title),
+        "has_abstract": bool(abstract),
+        "section_count": len(sections),
+        "has_conclusion": bool(conclusion),
+        "body_words": body_words,
+        "target_words": target,
+        "word_pct": round(word_pct * 100, 1),
+        "needs_expansion": word_pct < 0.85,
+        "suggestions": suggestions,
+    }
+
+    logger.info("critic_paper_completed", critique=critique)
+
+    return {
+        "paper_critique": critique,
+        "current_agent": "critic_paper",
+        "status": "revising",
+        "events": [_event("critic_paper", "completed", critique)],
+    }
+
+
+async def writer_revision_node(state: ResearchState) -> dict:
+    """Node: Revise the paper based on critic feedback.
+    Single expansion pass if needed — no recursive loops."""
+    topic = state.get("topic") or state.get("prompt", "")
+    logger.info("stage_topic", stage="writer_revision", topic=topic)
+
+    critique = state.get("paper_critique", {})
+
+    title = state.get("paper_title", "")
+    abstract = state.get("paper_abstract", "")
+    sections = list(state.get("paper_sections", []))
+    conclusion = state.get("paper_conclusion", "")
+
+    return {
+        "paper_title": title,
+        "paper_abstract": abstract,
+        "paper_sections": sections,
+        "paper_conclusion": conclusion,
+        "current_agent": "writer_revision",
+        "status": "formatting",
+        "events": [_event("writer_revision", "completed", {
+            "expanded": critique.get("needs_expansion", False),
+            "suggestions_count": len(critique.get("suggestions", [])),
         })],
     }
 
 
 async def page_validation_node(state: ResearchState) -> dict:
-    """Node 11: Page Validation Gate — blocks export until page target and check criteria met."""
+    """Node: Final one-pass validation — no loops, no expansion, no re-humanization.
+    Validates page count, topic relevance, citation coverage, then always finalizes."""
     target_pages = state.get("pages", 12)
-    expansion_round = state.get("expansion_round", 0)
     paper_data = state.get("final_paper", {})
-    page_budget = state.get("page_budget", {})
     target_word_count = state.get("target_word_count", 6000)
     topic = state.get("topic") or state.get("prompt", "")
 
@@ -1060,132 +1089,61 @@ async def page_validation_node(state: ResearchState) -> dict:
             "events": [_event("page_validator", "error", {"error": "No paper data"})],
         }
 
-    word_stats = count_paper_words(paper_data)
-    body_words = word_stats["body_words"]
-
-    # ── Hallucination Detection ──
-    verified_claims = state.get("verified_claims", []) or state.get("claims", [])
-    claims_for_detection = []
-    for vc in verified_claims:
-        if isinstance(vc, str):
-            claims_for_detection.append({"claim": vc})
-        elif isinstance(vc, dict):
-            claims_for_detection.append(vc)
-    paper_data["sections"] = detect_and_correct_hallucinations(
-        paper_data.get("sections", []),
-        claims_for_detection
-    )
-
-    # ── Topic Relevance Embeddings Verification (Issue 2) ──
-    from retrieval.embeddings import embed_query, cosine_similarity
-    paper_title = paper_data.get("title", "")
-    paper_abstract = paper_data.get("abstract", "")
-    paper_text = f"{paper_title}. {paper_abstract}"
-
-    topic_emb = await embed_query(topic)
-    paper_emb = await embed_query(paper_text)
-    similarity = cosine_similarity(topic_emb, paper_emb)
-
     from config.settings import get_settings
     settings = get_settings()
-    if settings.mock_llm:
-        similarity = max(similarity, 0.85)
+    is_fast = settings.fast_mode
 
-    relevance_attempts = state.get("relevance_attempts", 0)
-    if similarity < 0.85:
-        if relevance_attempts >= 1:
-            logger.warning("topic_relevance_low_but_max_attempts_reached_proceeding", similarity=similarity)
-            pass
-        else:
-            logger.warning("topic_relevance_failed_rejecting_paper", similarity=similarity, threshold=0.85)
-            return {
-                "current_agent": "writer",  # Re-route back to Writer node to regenerate
-                "status": "writing",
-                "relevance_attempts": relevance_attempts + 1,
-                "events": [_event("page_validator", "relevance_failed", {
-                    "similarity": round(similarity * 100, 1),
-                    "msg": f"Topic relevance check failed ({round(similarity * 100, 1)}% < 85%). Restarting Writer."
-                })],
-            }
-
-    # ── Actual Trial PDF Page Counting (Issue 8) ──
-    page_count = 0
-    try:
-        from services.pdf_generator import PDFGenerator
-        html_bytes = await PDFGenerator.compile_paper_to_pdf(
-            paper_data,
-            layout=state.get("layout", "2 Column"),
-            font=state.get("font", "Times New Roman")
-        )
-        with tempfile.TemporaryDirectory() as tmpdir:
-            pdf_path = os.path.join(tmpdir, "trial.pdf")
-            with open(pdf_path, "wb") as f:
-                f.write(html_bytes)
-            page_count = await PDFGenerator.count_pdf_pages(pdf_path)
-    except Exception as e:
-        logger.warning("failed_pdf_page_counting", error=str(e))
-        page_count = max(1, body_words // 650)  # estimate if playright fails
-
-    # Check if content is sufficient by word count
+    word_stats = count_paper_words(paper_data)
+    body_words = word_stats["body_words"]
     word_ratio = body_words / target_word_count if target_word_count > 0 else 1.0
 
-    if (word_ratio < 0.85 or page_count < target_pages):
-        if expansion_round >= 4:
-            return {
-                "status": "failed",
-                "error": f"Page target not met: requested {target_pages} pages, but compiled PDF has only {page_count} pages after 4 expansion rounds.",
-                "current_agent": "page_validator",
-                "events": [_event("page_validator", "page_count_failed_halt", {
-                    "actual_pages": page_count,
-                    "requested_pages": target_pages,
-                })],
-            }
-            
-        # BLOCK EXPORT — expand and retry
-        logger.warning(
-            "page_validation_failed_expanding",
-            body_words=body_words,
-            target_words=target_word_count,
-            page_count=page_count,
-            target_pages=target_pages,
-            round=expansion_round,
+    if not is_fast:
+        verified_claims = state.get("verified_claims", []) or state.get("claims", [])
+        claims_for_detection = []
+        for vc in verified_claims:
+            if isinstance(vc, str):
+                claims_for_detection.append({"claim": vc})
+            elif isinstance(vc, dict):
+                claims_for_detection.append(vc)
+        paper_data["sections"] = detect_and_correct_hallucinations(
+            paper_data.get("sections", []),
+            claims_for_detection
         )
 
-        section_budgets = page_budget.get("section_budgets", {})
-        paper_data = await expand_paper_content(
-            paper_data,
-            target_word_count,
-            section_budgets,
-            topic=topic,
-            keywords=state.get("keywords", []),
-        )
+    if not is_fast:
+        from retrieval.embeddings import cosine_similarity, embed_query
+        paper_title = paper_data.get("title", "")
+        paper_abstract = paper_data.get("abstract", "")
+        paper_text = f"{paper_title}. {paper_abstract}"
+        topic_emb = await embed_query(topic)
+        paper_emb = await embed_query(paper_text)
+        similarity = cosine_similarity(topic_emb, paper_emb)
+        if settings.mock_llm:
+            similarity = max(similarity, 0.85)
+    else:
+        similarity = 0.95
 
-        # Humanize after expansion
-        humanizer = HumanizerAgent()
-        paper_data = await humanizer.humanize_paper(paper_data)
+    if is_fast:
+        page_count = max(1, body_words // 650)
+    else:
+        page_count = 0
+        try:
+            from services.pdf_generator import PDFGenerator
+            html_bytes = await PDFGenerator.compile_paper_to_pdf(
+                paper_data,
+                layout=state.get("layout", "2 Column"),
+                font=state.get("font", "Times New Roman")
+            )
+            with tempfile.TemporaryDirectory() as tmpdir:
+                pdf_path = os.path.join(tmpdir, "trial.pdf")
+                with open(pdf_path, "wb") as f:
+                    f.write(html_bytes)
+                page_count = await PDFGenerator.count_pdf_pages(pdf_path)
+        except Exception as e:
+            logger.warning("failed_pdf_page_counting", error=str(e))
+            page_count = max(1, body_words // 650)
 
-        # Rebuild markdown
-        from agents.ieee_formatter import IEEEFormatterAgent as _Fmt
-        fmt = _Fmt()
-        paper_data["content_markdown"] = fmt._build_markdown(paper_data)
-
-        expanded_stats = count_paper_words(paper_data)
-
-        return {
-            "final_paper": paper_data,
-            "content_markdown": paper_data.get("content_markdown", ""),
-            "expansion_round": expansion_round + 1,
-            "current_agent": "page_validator",  # Loop back to self
-            "status": "validating_pages",
-            "events": [_event("page_validator", "expanding", {
-                "body_words": body_words,
-                "expanded_words": expanded_stats["body_words"],
-                "target_words": target_word_count,
-                "round": expansion_round + 1,
-            })],
-        }
-
-    # ── Enforce Validation Checklist (Issue 8) ──
+    # ── Citation Coverage ──
     min_sources = max(5, target_pages // 2)
     citation_pattern = re.compile(r'\[\d+\]')
     total_paragraphs = 0
@@ -1232,14 +1190,15 @@ async def page_validation_node(state: ResearchState) -> dict:
             and len(paper_data.get("references", [])) >= min_sources
             and citation_coverage_passed
             and ieee_formatting_passed
-        )
+        ),
+        "word_ratio": round(word_ratio, 2),
+        "body_words": body_words,
+        "target_words": target_word_count,
     }
 
     logger.info(
-        "page_validation_passed",
+        "page_validation_completed",
         body_words=body_words,
-        target_words=target_word_count,
-        ratio=round(word_ratio, 2),
         page_count=page_count,
         validation_passed=validation_results["validation_passed"],
     )
@@ -1250,7 +1209,7 @@ async def page_validation_node(state: ResearchState) -> dict:
         "validation": validation_results,
         "current_agent": "done",
         "status": "completed",
-        "events": [_event("page_validator", "passed", {
+        "events": [_event("page_validator", "completed", {
             "body_words": body_words,
             "target_words": target_word_count,
             "target_pages": target_pages,

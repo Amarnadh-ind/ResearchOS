@@ -5,6 +5,7 @@ Falls back to in-memory dict when Redis is unavailable.
 """
 
 import json
+
 import structlog
 
 from config.settings import get_settings

@@ -1,14 +1,15 @@
-import sys
 import os
+import sys
+
 import pytest
-from unittest.mock import AsyncMock, MagicMock
 
 # Ensure backend directory is in the path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
+from config.models import AgentRole
 from services.llm import get_llm_client
 from services.llm_manager import get_llm_manager
-from config.models import AgentRole
+
 
 @pytest.mark.asyncio
 async def test_mock_mode_active_when_enabled(monkeypatch):

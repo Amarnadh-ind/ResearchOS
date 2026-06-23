@@ -4,10 +4,16 @@ Calculates and enforces the topic relevance constraint (relevance >= 90%)
 for generated paragraphs, with dynamic rewrite fallback.
 """
 
+import hashlib
 import re
+
 import structlog
-from services.llm import get_llm_client
+
 from config.models import AgentRole
+from services.llm import get_llm_client
+
+# ── Embedding result cache: key = sha256(paragraph[:300] + "|" + topic) → score
+_embedding_cache: dict[str, float] = {}
 
 logger = structlog.get_logger()
 
@@ -51,10 +57,23 @@ def get_domain_forbidden_terms(topic: str) -> list[str]:
     return forbidden
 
 
+def _cache_key(paragraph: str, topic: str) -> str:
+    h = hashlib.sha256()
+    h.update(paragraph[:300].encode())
+    h.update(b"|")
+    h.update(topic.encode())
+    return h.hexdigest()
+
+
 def calculate_relevance(paragraph: str, topic: str, keywords: list[str] | None = None) -> float:
     """Calculate the relevance score of a paragraph to a topic (0.0 to 1.0)."""
     if not paragraph.strip():
         return 1.0
+
+    key = _cache_key(paragraph, topic)
+    cached = _embedding_cache.get(key)
+    if cached is not None:
+        return cached
 
     p_lower = paragraph.lower()
     t_lower = topic.lower()
@@ -71,7 +90,7 @@ def calculate_relevance(paragraph: str, topic: str, keywords: list[str] | None =
             return 0.0
 
     # 2. Check semantic similarity using synchronous embeddings
-    from retrieval.embeddings import embed_query_sync, cosine_similarity
+    from retrieval.embeddings import cosine_similarity, embed_query_sync
     
     target_desc = topic
     if keywords:
@@ -106,6 +125,7 @@ def calculate_relevance(paragraph: str, topic: str, keywords: list[str] | None =
 
     # If the semantic similarity is low AND there is absolutely no keyword overlap, fail
     if sem_sim < 0.15 and not has_words:
+        _embedding_cache[key] = 0.0
         return 0.0
 
     # If there is keyword overlap, boost relevance score to pass the 0.85 threshold
@@ -114,57 +134,22 @@ def calculate_relevance(paragraph: str, topic: str, keywords: list[str] | None =
     else:
         relevance_score = sem_sim
 
+    _embedding_cache[key] = relevance_score
     return relevance_score
 
 
 async def ensure_paragraph_relevance(paragraph: str, topic: str, keywords: list[str] | None = None) -> str:
-    """Ensure a paragraph is relevant. If not, rewrite it using LLM or fallback."""
+    """Ensure a paragraph is relevant. If not, apply rule-based cleanup only (no LLM calls)."""
     if not paragraph.strip():
         return paragraph
+
+    from config.settings import get_settings
 
     score = calculate_relevance(paragraph, topic, keywords)
     if score >= 0.85:
         return paragraph
 
-    logger.info(
-        "regenerating_paragraph_for_relevance", 
-        topic=topic, 
-        original_preview=paragraph[:100]
-    )
-
-    # Call LLM to rewrite paragraph in the context of the topic
-    llm = get_llm_client()
-    system_prompt = (
-        "You are an expert academic editor. Your job is to rewrite a paragraph to make it "
-        "highly relevant to the given topic. You must NOT use any technical engineering terms like "
-        "CNN, Transformer, Kubernetes, Throughput, Benchmarking, latency, GPU, or CPU "
-        "unless the topic specifically requires them."
-    )
-    user_prompt = (
-        f"Topic: {topic}\n"
-        f"Keywords: {', '.join(keywords) if keywords else ''}\n\n"
-        f"Paragraph to rewrite:\n{paragraph}\n\n"
-        f"Rewrite the paragraph to be 100% relevant to the topic while maintaining a formal, "
-        f"scholarly academic tone and keeping all citation keys (e.g. [1], [2]) intact. "
-        f"Return ONLY the rewritten paragraph text."
-    )
-
-    try:
-        # Set a short timeout context or allow standard complete call
-        rewritten = await llm.complete(
-            role=AgentRole.WRITER,
-            system_prompt=system_prompt,
-            user_prompt=user_prompt,
-            temperature=0.3
-        )
-        rewritten = rewritten.strip()
-        if rewritten and len(rewritten) > 10:
-            if calculate_relevance(rewritten, topic, keywords) >= 0.85:
-                return rewritten
-    except Exception as e:
-        logger.error("failed_rewriting_paragraph", error=str(e))
-
-    # Rule-based fallback replacement if LLM is unavailable or fails
+    # Rule-based cleanup only - no LLM calls for speed
     clean_p = paragraph
     forbidden = get_domain_forbidden_terms(topic)
     for term in forbidden:

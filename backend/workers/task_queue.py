@@ -2,9 +2,9 @@
 Background task queue management.
 """
 
-import asyncio
-import structlog
 from collections import OrderedDict
+
+import structlog
 
 logger = structlog.get_logger()
 

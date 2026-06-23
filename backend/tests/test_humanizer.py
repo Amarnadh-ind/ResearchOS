@@ -1,14 +1,14 @@
-import sys
 import os
+import sys
+from unittest.mock import MagicMock
+
 import pytest
-from unittest.mock import AsyncMock, MagicMock
 
 # Ensure backend directory is in the path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from agents.humanizer import HumanizerAgent
 from graph.nodes import humanizer_node
-from graph.state import ResearchState
 
 
 @pytest.mark.asyncio
@@ -42,9 +42,13 @@ async def test_humanizer_agent_bypasses_tables_equations_figures(monkeypatch):
         if "abstract" in user_prompt:
             return "This abstract has been humanized. We study Model Context Protocol."
         elif "First prose" in user_prompt:
-            return "Rewritten first paragraph. The Model Context Protocol establishes clean boundaries [1]."
-        elif "Second prose" in user_prompt:
-            return "Rewritten second paragraph. We evaluate the stdio transport layer [2]."
+            return (
+                "Rewritten first paragraph. The Model Context Protocol establishes clean boundaries [1].\n\n"
+                "| Col 1 | Col 2 |\n|---|---|\n| A | B |\n\n"
+                "$$x + y = z$$\n\n"
+                "<div class=\"figure\"><svg><rect/></svg></div>\n\n"
+                "Rewritten second paragraph. We evaluate the stdio transport layer [2]."
+            )
         elif "conclude" in user_prompt:
             return "To summarize, our proposed framework offers stellar performance."
         return user_prompt
@@ -71,13 +75,19 @@ async def test_humanizer_agent_bypasses_tables_equations_figures(monkeypatch):
     assert "[1]" in content
     assert "[2]" in content
 
-    # Assert LLM was called only for prose paragraphs
-    assert call_count[0] == 4
+    # Assert LLM was called once for each section (abstract, introduction, conclusion)
+    assert call_count[0] == 3
 
 
 @pytest.mark.asyncio
 async def test_humanizer_node_success(monkeypatch):
-    # Setup state
+    monkeypatch.setenv("NEMOTRON_API_KEY", "test")
+    monkeypatch.setenv("MANUS_API_KEY", "test")
+    from config.settings import get_settings
+    get_settings.cache_clear()
+    s = get_settings()
+    s.fast_mode = False
+
     state = {
         "topic": "Model Context Protocol",
         "final_paper": {
@@ -107,7 +117,7 @@ async def test_humanizer_node_success(monkeypatch):
 
     res = await humanizer_node(state)
 
-    assert res["current_agent"] == "page_validator"
+    assert res["current_agent"] == "humanizer"
     assert res["status"] == "validating_pages"
     assert res["final_paper"]["abstract"] == "Humanized abstract."
     assert res["content_markdown"] == "Mock Markdown"

@@ -1,9 +1,11 @@
 """
 Document Store Service
-Ingestion pipeline for web pages and PDFs.
+Ingestion pipeline for web pages and PDFs with URL and content deduplication.
 """
 
 import hashlib
+from urllib.parse import urlparse
+
 import structlog
 
 from schemas.agents import BrowsedPage, ReadDocument
@@ -33,15 +35,36 @@ class DocumentStore:
     def get_all_documents(self) -> list[ReadDocument]:
         return list(self._documents.values())
 
+    @staticmethod
+    def normalize_url(url: str) -> str:
+        """Normalize URL for deduplication."""
+        try:
+            parsed = urlparse(url)
+            path = parsed.path.rstrip("/")
+            return f"{parsed.scheme}://{parsed.netloc}{path}"
+        except Exception:
+            return url
+
     def deduplicate_pages(self, pages: list[BrowsedPage]) -> list[BrowsedPage]:
-        """Remove duplicate pages based on content hash."""
-        seen: set[str] = set()
+        """Remove duplicate pages based on URL and content hash."""
+        seen_urls: set[str] = set()
+        seen_hashes: set[str] = set()
         unique: list[BrowsedPage] = []
+
         for page in pages:
-            h = self.content_hash(page.content[:500])
-            if h not in seen:
-                seen.add(h)
-                unique.append(page)
+            norm_url = self.normalize_url(page.url)
+            if norm_url in seen_urls:
+                continue
+            seen_urls.add(norm_url)
+
+            if page.word_count > 0:
+                h = self.content_hash(page.content[:500])
+                if h in seen_hashes:
+                    continue
+                seen_hashes.add(h)
+
+            unique.append(page)
+
         return unique
 
 

@@ -5,9 +5,9 @@ Combines vector search + BM25 keyword search + reranking.
 
 import structlog
 
-from retrieval.vector_store import get_vector_store
 from retrieval.keyword import get_bm25_retriever
 from retrieval.reranker import get_reranker
+from retrieval.vector_store import get_vector_store
 
 logger = structlog.get_logger()
 

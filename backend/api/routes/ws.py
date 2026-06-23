@@ -5,6 +5,7 @@ Sends previews to the activity stream — full responses stay in backend storage
 
 import asyncio
 import json
+
 import structlog
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 

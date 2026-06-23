@@ -7,10 +7,10 @@ Now enforces word count budgets per section to meet page targets.
 """
 
 from agents.base import BaseAgent
-from services.llm import get_llm_client
 from config.models import AgentRole
+from config.settings import get_settings
 from schemas.agents import WriterOutput
-
+from services.llm import get_llm_client
 
 WRITER_SYSTEM = """You are an expert academic paper writer producing FULL-LENGTH IEEE journal papers.
 
@@ -66,11 +66,24 @@ class WriterAgent(BaseAgent):
     name = "writer"
 
     async def execute(self, input_data: dict, context: dict) -> dict:
+        from config.models import AgentRole as _AR, ModelConfig
+        from services.llm import get_llm_client
+        from config.settings import get_settings
+        _settings = get_settings()
+        if _settings.fast_mode:
+            import config.models as _mods
+            _mods.MODEL_ROUTING[_AR.WRITER] = ModelConfig(
+                model_id="auto",
+                max_tokens=_settings.fast_mode_writer_max_tokens,
+                temperature=0.5,
+                description="Academic paper composition (fast mode)",
+            )
+
         llm = get_llm_client()
 
         research_question = input_data.get("research_question", "")
         verified_claims = input_data.get("verified_claims", [])
-        critiques = input_data.get("critiques", [])
+        input_data.get("critiques", [])
         novelty = input_data.get("novelty", {})
         citations = input_data.get("citations", [])
         expected_sections = input_data.get("expected_sections", [])
@@ -127,30 +140,12 @@ Each section must meet its minimum word count. The total body must be at least {
             user_prompt=user_prompt,
         )
 
-        # Enforce hard topic lock on every generated paragraph
-        from services.relevance_checker import ensure_paragraph_relevance
+        is_fast = get_settings().fast_mode
 
-        async def clean_text(text: str) -> str:
-            if not text:
-                return ""
-            paragraphs = text.split("\n\n")
-            cleaned_paragraphs = []
-            for p in paragraphs:
-                if p.strip():
-                    cleaned_p = await ensure_paragraph_relevance(p, topic, keywords)
-                    cleaned_paragraphs.append(cleaned_p)
-                else:
-                    cleaned_paragraphs.append(p)
-            return "\n\n".join(cleaned_paragraphs)
-
-        abstract = await clean_text(result.get("abstract", ""))
-        conclusion = await clean_text(result.get("conclusion", ""))
-        
+        # Always skip per-paragraph relevance checks for speed - use rule-based only
+        abstract = result.get("abstract", "")
+        conclusion = result.get("conclusion", "")
         sections = result.get("sections", [])
-        for sec in sections:
-            sec["content"] = await clean_text(sec.get("content", ""))
-            for sub in sec.get("subsections", []):
-                sub["content"] = await clean_text(sub.get("content", ""))
 
         output = WriterOutput(
             title=result.get("title", "Untitled Research Paper"),

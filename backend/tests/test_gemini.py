@@ -1,14 +1,15 @@
-import sys
 import os
-import pytest
-import json
+import sys
 from unittest.mock import AsyncMock, MagicMock
+
+import pytest
 
 # Ensure backend directory is in the path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from services.llm_manager import get_llm_manager
 from config.models import AgentRole
+from services.llm_manager import get_llm_manager
+
 
 class MockResponse:
     def __init__(self, status_code, json_data):
@@ -20,8 +21,8 @@ class MockResponse:
         
     def raise_for_status(self):
         if self.status_code >= 400:
-            from httpx import HTTPStatusError, Request
-            req = Request("POST", "http://test")
+            from httpx import Request
+            Request("POST", "http://test")
             # We raise a basic HTTP status error or Exception
             raise Exception(f"HTTP {self.status_code}")
 

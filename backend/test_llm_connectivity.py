@@ -14,11 +14,12 @@ Usage:
 """
 
 import asyncio
-import time
-import traceback
+import json
 import os
 import sys
-import json
+import time
+import traceback
+
 import httpx
 from dotenv import load_dotenv
 
@@ -51,19 +52,20 @@ PROVIDERS = {
     },
     "gemma": {
         "env_key": "GEMMA_API_KEY",
-        "models": ["gemma-4-31b", "gemma-4-26b"],
+        "models": ["gemma-4-31b-it", "gemma-4-26b-a4b-it"],
     },
     "manus": {
         "env_key": "MANUS_API_KEY",
         "env_base": "MANUS_BASE_URL",
-        "default_base": "https://api.manus.ai/v1",
+        "default_base": "https://api.manus.im/v1",
         "endpoint": "/chat/completions",
-        "models": ["manus"],
+        "models": ["manus-v1"],
+        "auth_header": "API_KEY",
     },
     "grok": {
         "env_key": "GROK_API_KEY",
         "endpoint": "https://api.x.ai/v1/chat/completions",
-        "models": ["grok-2", "grok-beta"],
+        "models": ["grok-4.3", "grok-latest"],
     },
     "openai": {
         "env_key": "OPENAI_API_KEY",
@@ -112,12 +114,14 @@ async def test_openai_compatible(
     start = time.monotonic()
     try:
         async with httpx.AsyncClient(timeout=timeout) as client:
+            auth_headers = {"Content-Type": "application/json"}
+            if provider == "manus":
+                auth_headers["API_KEY"] = key
+            else:
+                auth_headers["Authorization"] = f"Bearer {key}"
             resp = await client.post(
                 url,
-                headers={
-                    "Authorization": f"Bearer {key}",
-                    "Content-Type": "application/json",
-                },
+                headers=auth_headers,
                 json=payload,
             )
             result["status_code"] = resp.status_code

@@ -9,9 +9,9 @@ Usage:
     python test_critic_json_parsing.py
 """
 
-import sys
-import os
 import json
+import os
+import sys
 
 # Fix Windows encoding
 if sys.platform == "win32":
@@ -24,9 +24,8 @@ if sys.platform == "win32":
 # Add backend to path
 sys.path.insert(0, os.path.dirname(__file__))
 
-from services.llm import LLMClient
 from config.models import AgentRole
-
+from services.llm import LLMClient
 
 # ── Test cases: various malformed JSON responses ──────────────
 TEST_CASES = [
@@ -127,7 +126,7 @@ def run_tests():
                 print(f"          Result: PASS (parsed {len(result)} keys)")
                 passed += 1
             else:
-                print(f"          Result: UNEXPECTED PASS (should have failed)")
+                print("          Result: UNEXPECTED PASS (should have failed)")
                 # This is actually OK — if we can extract JSON from garbage, that's fine
                 passed += 1
         except Exception as e:

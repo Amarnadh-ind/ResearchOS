@@ -13,7 +13,8 @@ Does NOT pad with filler — adds substantive academic content:
 """
 
 import structlog
-from services.page_budget import count_words, count_paper_words
+
+from services.page_budget import count_paper_words, count_words
 
 logger = structlog.get_logger()
 
@@ -1004,9 +1005,10 @@ async def expand_paper_content(
     If MOCK_LLM=true, it uses pre-built expansion blocks.
     """
     import os
+
+    from config.models import AgentRole
     from config.settings import get_settings
     from services.llm import get_llm_client
-    from config.models import AgentRole
 
     settings = get_settings()
     use_mock = os.getenv("MOCK_LLM", "false").lower() in ("true", "1", "yes")

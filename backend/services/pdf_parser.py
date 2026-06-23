@@ -3,9 +3,8 @@ PDF Parser Service
 PyMuPDF-based document parsing with section detection.
 """
 
-import io
-import structlog
 import fitz  # PyMuPDF
+import structlog
 
 logger = structlog.get_logger()
 

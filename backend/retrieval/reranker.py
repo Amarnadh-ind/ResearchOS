@@ -5,8 +5,9 @@ Uses LLM-based reranking via OpenRouter when cross-encoder is unavailable.
 """
 
 import structlog
-from services.llm import get_llm_client
+
 from config.models import AgentRole
+from services.llm import get_llm_client
 
 logger = structlog.get_logger()
 

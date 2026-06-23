@@ -1,11 +1,11 @@
-import sys
 import os
-import pytest
+import sys
 
 # Ensure backend directory is in the path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from services.page_budget import compute_page_budget, count_words, count_paper_words
+from services.page_budget import compute_page_budget, count_paper_words, count_words
+
 
 def test_compute_page_budget_defaults():
     budget = compute_page_budget(12)

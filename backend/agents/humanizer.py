@@ -1,16 +1,14 @@
-"""
-Agent 11: Humanizer Agent
-Optimizes tone and structures to make text sound human-like and reduce plagiarism under 4%.
-"""
+"""Agent 11: Humanizer Agent
+Section-level humanization — all sections processed in parallel."""
 
-import asyncio
 import copy
+
 from agents.base import BaseAgent
-from services.llm import get_llm_client
 from config.models import AgentRole
+from services.llm import get_llm_client
 
 HUMANIZER_SYSTEM = """You are an academic writing optimizer and paraphrasing specialist.
-Your task is to rewrite the given academic paper section/paragraph to:
+Your task is to rewrite the given academic paper section to:
 1. Ensure the tone is natural, professional, and completely free of AI-generated signatures (avoid clichés, robotic transition words, and repetitive sentence structures like 'Furthermore', 'Moreover', 'In conclusion', 'It is crucial to note', 'Indeed', 'Testament to', 'As shown in').
 2. Aggressively paraphrase the text so that it has ZERO resemblance to any source material, ensuring a plagiarism score strictly under 4%.
 3. Absolutely preserve all LaTeX mathematical equations (e.g. $$equation$$ or $equation$) and inline citations (e.g. [1], [2], etc.) exactly as they are. Do not alter, delete, or renumber them.
@@ -28,28 +26,42 @@ class HumanizerAgent(BaseAgent):
             text = input_data.get("text", "")
             if not text:
                 return {"text": ""}
-            humanized_text = await self._humanize_text(text)
+            humanized_text = await self._humanize_section_text(text)
             return {"text": humanized_text}
 
         paper_copy = copy.deepcopy(paper)
+        sections_to_humanize = []
 
-        # 1. Humanize Abstract
         abstract = paper_copy.get("abstract", "")
         if abstract:
-            paper_copy["abstract"] = await self._humanize_text(abstract)
+            sections_to_humanize.append(("abstract", abstract))
+            paper_copy["abstract"] = ""
 
-        # 2. Humanize Conclusion
         conclusion = paper_copy.get("conclusion", "")
         if conclusion:
-            paper_copy["conclusion"] = await self._humanize_text(conclusion)
+            sections_to_humanize.append(("conclusion", conclusion))
+            paper_copy["conclusion"] = ""
 
-        # 3. Humanize Sections
         sections = paper_copy.get("sections", [])
-        if sections:
-            tasks = []
-            for sec in sections:
-                tasks.append(self._humanize_section(sec))
-            await asyncio.gather(*tasks)
+        for i, sec in enumerate(sections):
+            content = sec.get("content", "")
+            if content:
+                sections_to_humanize.append((f"section_{i}", content))
+                sec["content"] = ""
+
+        if sections_to_humanize:
+            import asyncio
+            tasks = [self._humanize_section_text(text) for _, text in sections_to_humanize]
+            results = await asyncio.gather(*tasks)
+
+            for (key, _), humanized in zip(sections_to_humanize, results):
+                if key == "abstract":
+                    paper_copy["abstract"] = humanized
+                elif key == "conclusion":
+                    paper_copy["conclusion"] = humanized
+                elif key.startswith("section_"):
+                    idx = int(key.split("_")[1])
+                    paper_copy["sections"][idx]["content"] = humanized
 
         return paper_copy
 
@@ -60,64 +72,27 @@ class HumanizerAgent(BaseAgent):
             return result["data"]
         return paper
 
-    async def _humanize_text(self, text: str) -> str:
+    async def _humanize_section_text(self, text: str) -> str:
+        """Humanize an entire section in a single LLM call."""
         if not text.strip():
             return text
 
-        paragraphs = text.split("\n\n")
-        p_tasks = []
-        p_indices = []
-
-        for idx, p in enumerate(paragraphs):
-            p_stripped = p.strip()
-            if not p_stripped:
-                continue
-
-            # Skip markdown tables, HTML/SVG figure blocks, and math equations
-            if p_stripped.startswith("|"):
-                continue
-            if p_stripped.startswith("<") and (p_stripped.endswith(">") or len(p_stripped) > 20):
-                continue
-            if p_stripped.startswith("$$") and p_stripped.endswith("$$"):
-                continue
-
-            p_indices.append(idx)
-            p_tasks.append(self._humanize_paragraph(p))
-
-        if p_tasks:
-            rewritten_paragraphs = await asyncio.gather(*p_tasks)
-            for idx, rewritten in zip(p_indices, rewritten_paragraphs):
-                paragraphs[idx] = rewritten
-
-        return "\n\n".join(paragraphs)
-
-    async def _humanize_paragraph(self, paragraph: str) -> str:
         llm = get_llm_client()
-        user_prompt = f"Rewrite and humanize this paragraph:\n\n{paragraph}"
+        user_prompt = (
+            "Rewrite and humanize the following academic section to sound natural "
+            "and original while preserving all technical meaning, citations, and equations:\n\n"
+            f"{text}"
+        )
         try:
             res = await llm.complete(
                 role=AgentRole.HUMANIZER,
                 system_prompt=HUMANIZER_SYSTEM,
                 user_prompt=user_prompt,
-                temperature=0.3
+                temperature=0.3,
             )
             res_clean = res.strip()
-            if res_clean:
-                # Safety fallback to original if output is too short (possible truncation/error)
-                if len(res_clean) > len(paragraph) * 0.4:
-                    return res_clean
+            if res_clean and len(res_clean) > len(text) * 0.4:
+                return res_clean
         except Exception:
             pass
-        return paragraph
-
-    async def _humanize_section(self, section: dict):
-        content = section.get("content", "")
-        if content:
-            section["content"] = await self._humanize_text(content)
-
-        subsections = section.get("subsections", [])
-        if subsections:
-            tasks = []
-            for sub in subsections:
-                tasks.append(self._humanize_section(sub))
-            await asyncio.gather(*tasks)
+        return text

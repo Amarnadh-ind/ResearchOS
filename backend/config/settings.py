@@ -4,7 +4,9 @@ Centralized configuration via Pydantic Settings with env var support.
 """
 
 from functools import lru_cache
+
 from dotenv import load_dotenv
+
 load_dotenv()
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -29,7 +31,7 @@ class Settings(BaseSettings):
     backend_host: str = "0.0.0.0"
     backend_port: int = 8000
     backend_workers: int = 4
-    cors_origins: list[str] = ["http://localhost:3000", "http://127.0.0.1:3000"]
+    cors_origins: list[str] = ["http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:3001", "http://127.0.0.1:3001"]
 
     # ── OpenRouter ───────────────────────────────────────
     openrouter_api_key: str = ""
@@ -37,12 +39,19 @@ class Settings(BaseSettings):
 
     # ── Multi-Provider LLM Keys ──────────────────────────
     manus_api_key: str = ""
-    manus_base_url: str = "https://api.manus.ai/v1"
+    manus_base_url: str = "https://api.manus.im/v1"
     gemma_api_key: str = ""
     gemini_api_key: str = ""
     grok_api_key: str = ""
     openai_api_key: str = ""
+    nemotron_api_key: str = ""
+    nemotron_base_url: str = "https://integrate.api.nvidia.com/v1"
     llm_provider: str = "auto"
+    model_cooldown_seconds: int = 120  # 2 minutes default cooldown per model
+
+    # ── Firecrawl ────────────────────────────────────────
+    firecrawl_api_key: str = ""
+    firecrawl_base_url: str = "https://api.firecrawl.dev/v1"
 
     # ── Web Search ───────────────────────────────────────
     tavily_api_key: str = ""
@@ -71,6 +80,18 @@ class Settings(BaseSettings):
         auth = f":{self.redis_password}@" if self.redis_password else ""
         return f"redis://{auth}{self.redis_host}:{self.redis_port}/0"
 
+    # ── FAST MODE ────────────────────────────────────────
+    fast_mode: bool = True
+    fast_mode_max_sources: int = 3
+    fast_mode_max_claims: int = 5
+    fast_mode_max_attempts: int = 1
+    fast_mode_skip_humanizer: bool = False
+    fast_mode_skip_ieee_llm: bool = False
+    fast_mode_writer_max_tokens: int = 8192
+    fast_mode_reader_max_chars: int = 4000
+    fast_mode_provider_timeout: float = 10.0
+    fast_mode_firecrawl_timeout: int = 15000
+
     # ── Qdrant ───────────────────────────────────────────
     qdrant_host: str = "localhost"
     qdrant_port: int = 6333
@@ -96,6 +117,7 @@ def get_settings() -> Settings:
 GLOBAL_RESEARCH_TOPIC: str = "Autonomous Multi-Agent Systems"
 
 import contextvars
+
 active_topic_var = contextvars.ContextVar("active_topic", default="")
 active_session_id_var = contextvars.ContextVar("active_session_id", default="")
 

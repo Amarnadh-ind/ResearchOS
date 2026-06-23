@@ -5,8 +5,8 @@ Injects them into paper sections to meet the visual density requirement
 of ~1 figure per 2 pages.
 """
 
-import re
 import hashlib
+
 import structlog
 
 logger = structlog.get_logger()
@@ -736,7 +736,7 @@ def generate_visuals_for_topic(topic: str, sections: list[dict], target_figures:
         high_eng = [12.0, 24.0, 45.0, 68.0, 89.0]
         low_eng = [88.0, 76.0, 55.0, 32.0, 11.0]
         svg = generate_line_chart_svg(
-            title=f"Engagement Metrics Shift over Time",
+            title="Engagement Metrics Shift over Time",
             x_labels=years,
             series={"High Interest": high_eng, "Low Interest": low_eng},
             xlabel="Year",

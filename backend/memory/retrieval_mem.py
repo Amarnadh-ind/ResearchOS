@@ -3,17 +3,18 @@ Layer 2: Retrieval Memory (Qdrant)
 Vector storage for semantic document retrieval.
 """
 
+import uuid
+
 import structlog
 from qdrant_client import AsyncQdrantClient
 from qdrant_client.models import (
     Distance,
+    FieldCondition,
+    Filter,
+    MatchValue,
     PointStruct,
     VectorParams,
-    Filter,
-    FieldCondition,
-    MatchValue,
 )
-import uuid
 
 from config.settings import get_settings
 
@@ -21,7 +22,8 @@ logger = structlog.get_logger()
 
 
 class RetrievalMemory:
-    """Qdrant-backed vector storage for semantic retrieval."""
+    """Qdrant-backed vector storage for semantic retrieval.
+    Falls back to in-memory list when Qdrant is unavailable."""
 
     def __init__(self):
         settings = get_settings()
@@ -30,23 +32,29 @@ class RetrievalMemory:
         self._port = settings.qdrant_port
         self._collection = settings.qdrant_collection
         self._dimension = settings.embedding_dimension
+        self._using_fallback = False
+        self._in_memory_store: list[dict] = []
 
     async def connect(self):
-        if self._client is None:
-            self._client = AsyncQdrantClient(host=self._host, port=self._port)
-            # Ensure collection exists
-            collections = await self._client.get_collections()
-            names = [c.name for c in collections.collections]
-            if self._collection not in names:
-                await self._client.create_collection(
-                    collection_name=self._collection,
-                    vectors_config=VectorParams(
-                        size=self._dimension,
-                        distance=Distance.COSINE,
-                    ),
-                )
-                logger.info("qdrant_collection_created", name=self._collection)
-            logger.info("qdrant_connected")
+        if self._client is None and not self._using_fallback:
+            try:
+                self._client = AsyncQdrantClient(host=self._host, port=self._port)
+                # Ensure collection exists
+                collections = await self._client.get_collections()
+                names = [c.name for c in collections.collections]
+                if self._collection not in names:
+                    await self._client.create_collection(
+                        collection_name=self._collection,
+                        vectors_config=VectorParams(
+                            size=self._dimension,
+                            distance=Distance.COSINE,
+                        ),
+                    )
+                    logger.info("qdrant_collection_created", name=self._collection)
+                logger.info("qdrant_connected")
+            except Exception as e:
+                logger.warning("qdrant_unavailable_using_memory", error=str(e))
+                self._using_fallback = True
 
     async def disconnect(self):
         if self._client:
@@ -60,6 +68,15 @@ class RetrievalMemory:
         metadatas: list[dict],
     ):
         """Store document chunks with embeddings."""
+        if self._using_fallback:
+            for text, embedding, meta in zip(texts, embeddings, metadatas):
+                self._in_memory_store.append({
+                    "text": text,
+                    "vector": embedding,
+                    **meta,
+                })
+            logger.info("in_memory_upserted", count=len(texts))
+            return
         await self.connect()
 
         points = []
@@ -89,6 +106,29 @@ class RetrievalMemory:
         session_id: str | None = None,
     ) -> list[dict]:
         """Semantic search over stored documents."""
+        if self._using_fallback:
+            # Simple cosine similarity search over in-memory store
+            import numpy as np
+            results = []
+            q = np.array(query_embedding)
+            q_norm = np.linalg.norm(q)
+            if q_norm == 0:
+                return []
+            for doc in self._in_memory_store:
+                if session_id and doc.get("session_id") != session_id:
+                    continue
+                v = np.array(doc.get("vector", []))
+                if len(v) == 0:
+                    continue
+                score = float(np.dot(q, v) / (q_norm * np.linalg.norm(v) + 1e-8))
+                results.append({
+                    "id": str(len(results)),
+                    "score": score,
+                    "text": doc.get("text", ""),
+                    **{k: v for k, v in doc.items() if k not in ("text", "vector")},
+                })
+            results.sort(key=lambda x: x["score"], reverse=True)
+            return results[:limit]
         await self.connect()
 
         query_filter = None
@@ -121,6 +161,10 @@ class RetrievalMemory:
 
     async def clear(self):
         """Clear all stored vectors by dropping and recreating the collection."""
+        if self._using_fallback:
+            self._in_memory_store.clear()
+            logger.info("in_memory_store_cleared")
+            return
         await self.connect()
         try:
             await self._client.delete_collection(self._collection)

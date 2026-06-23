@@ -1,11 +1,11 @@
-import sys
 import os
-import pytest
+import sys
 
 # Ensure backend directory is in the path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from services.visual_generator import generate_visuals_for_topic, inject_visuals_into_paper
+
 
 def test_generate_visuals_for_topic_count():
     topic = "Optimal Control of Interleaved DC-DC Converter"

@@ -32,6 +32,9 @@ markdownify==0.14.1
 
 # Web Scraping
 playwright==1.49.1
+
+# PDF Fallback Renderer
+fpdf2==2.8.7
 duckduckgo-search==7.2.1
 
 # Retrieval

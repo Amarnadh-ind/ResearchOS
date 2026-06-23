@@ -3,9 +3,9 @@ Dependency injection for API routes.
 """
 
 from config.settings import Settings, get_settings
-from services.llm import LLMClient, get_llm_client
-from memory.session import SessionMemory, get_session_memory
 from memory.metadata import MetadataStore, get_metadata_store
+from memory.session import SessionMemory, get_session_memory
+from services.llm import LLMClient, get_llm_client
 
 
 def get_settings_dep() -> Settings:

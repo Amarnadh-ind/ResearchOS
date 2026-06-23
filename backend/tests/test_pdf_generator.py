@@ -1,16 +1,18 @@
-import sys
 import os
+import sys
+
 import pytest
 
 # Ensure backend directory is in the path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from services.pdf_generator import (
+    PDFGenerator,
+    _build_sections_html,
     _font_css_from_name,
     parse_markdown_to_html,
-    _build_sections_html,
-    PDFGenerator
 )
+
 
 def test_font_css_from_name():
     assert _font_css_from_name("Times New Roman") == "'Times New Roman', Times"

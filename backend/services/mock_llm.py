@@ -1,7 +1,9 @@
 import json
-import re
 import os
+import re
+
 from config.models import AgentRole
+
 
 def extract_topic(prompt: str) -> str:
     """Helper to extract a clean topic from the prompt."""
@@ -350,15 +352,15 @@ def generate_crop_disease_completion(role: AgentRole, topic: str) -> str:
     # Read HTML parts
     parts = {}
     for i in range(1, 6):
-        with open(os.path.join(output_dir, f"paper_part{i}.html"), "r", encoding="utf-8") as f:
+        with open(os.path.join(output_dir, f"paper_part{i}.html"), encoding="utf-8") as f:
             parts[i] = f.read()
             
     # Read css
-    with open(os.path.join(output_dir, "ieee_style.css"), "r", encoding="utf-8") as f:
-        css = f.read()
+    with open(os.path.join(output_dir, "ieee_style.css"), encoding="utf-8") as f:
+        f.read()
         
     # Read full combined paper
-    with open(os.path.join(output_dir, "paper.html"), "r", encoding="utf-8") as f:
+    with open(os.path.join(output_dir, "paper.html"), encoding="utf-8") as f:
         paper_html = f.read()
 
     # Abstract text extraction
@@ -669,7 +671,7 @@ def _build_cinema_writer(topic: str, target_word_count: int = 6600) -> dict:
     """Build a full multi-section writer output for Indian Cinema, scaled to target_word_count."""
     t = topic
     base_words = 6000
-    scale = max(target_word_count / base_words, 1.0) if target_word_count > 0 else 1.0
+    max(target_word_count / base_words, 1.0) if target_word_count > 0 else 1.0
     return {
         "title": f"The Evolution of {t}: A Comprehensive Analysis of Narrative Shifts, Economic Restructuring, and the OTT Platform Revolution",
         "abstract": (
@@ -721,32 +723,32 @@ def _build_cinema_writer(topic: str, target_word_count: int = 6600) -> dict:
                 f"work, along with that of Ritwik Ghatak and Mrinal Sen, established a serious, socially committed "
                 f"cinematic language that critiqued societal failures and human conditions [5]."
             ), "subsections": [{"heading": "A. The Melodramatic Public", "content": (
-                f"Mainstream cinema developed a unique aesthetic known as the 'Masala' film, incorporating elements "
-                f"of action, romance, comedy, and music. According to Vasudevan [3], this form created a melodramatic "
-                f"public sphere where audiences negotiated their relationship with the state and modernity, transforming "
-                f"the cinema hall into a key site of public assembly and political mobilization."
+                "Mainstream cinema developed a unique aesthetic known as the 'Masala' film, incorporating elements "
+                "of action, romance, comedy, and music. According to Vasudevan [3], this form created a melodramatic "
+                "public sphere where audiences negotiated their relationship with the state and modernity, transforming "
+                "the cinema hall into a key site of public assembly and political mobilization."
             )}]},
             {"heading": "III. THE MULTIPLEX ERA AND EXHIBITION ECONOMICS", "content": (
-                f"The late 1990s and early 2000s marked the transition of exhibition from single-screen theaters to "
-                f"multiplexes. This transition was not merely a change in infrastructure; it reshaped the entire "
-                f"sociology of film viewing in urban centers. Multiplexes introduced higher ticket prices, premium seating, "
-                f"and multiple screens, turning movie-going into a luxury leisure activity for the growing middle class [9].\n\n"
-                f"Economically, the multiplex model allowed for niche and small-budget films to find viable audiences. "
-                f"Mainstream producers no longer needed to appeal to the lowest common denominator, leading to the rise "
-                f"of 'multiplex films'—narratives focusing on urban, cosmopolitan themes that would have failed in "
-                f"large-capacity single-screens. However, this shift also led to the marginalization of working-class "
-                f"audiences who were priced out of these modern venues [10]."
+                "The late 1990s and early 2000s marked the transition of exhibition from single-screen theaters to "
+                "multiplexes. This transition was not merely a change in infrastructure; it reshaped the entire "
+                "sociology of film viewing in urban centers. Multiplexes introduced higher ticket prices, premium seating, "
+                "and multiple screens, turning movie-going into a luxury leisure activity for the growing middle class [9].\n\n"
+                "Economically, the multiplex model allowed for niche and small-budget films to find viable audiences. "
+                "Mainstream producers no longer needed to appeal to the lowest common denominator, leading to the rise "
+                "of 'multiplex films'—narratives focusing on urban, cosmopolitan themes that would have failed in "
+                "large-capacity single-screens. However, this shift also led to the marginalization of working-class "
+                "audiences who were priced out of these modern venues [10]."
             ), "subsections": []},
             {"heading": "IV. THE RISE OF REGIONAL CROSSOVER BLOCKBUSTERS", "content": (
-                f"One of the most remarkable phenomena of the 21st century is the rise of the 'Pan-India' film. "
-                f"Originating primarily from the Telugu and Tamil industries, these films are designed to appeal "
-                f"to audiences across linguistic boundaries. S.S. Rajamouli's Baahubali franchise (2015, 2017) demonstrated "
-                f"that regional films, when backed by high production values, universal storytelling, and robust "
-                f"marketing, could outperform Hindi films in their own traditional markets [6].\n\n"
-                f"This shift is supported by box office statistics showing that Southern Indian regional cinema now "
-                f"accounts for more than half of the national box office revenue. The success of films like RRR, KGF, and "
-                f"Pushpa suggests a decentralization of creative and economic power away from Mumbai, leading to a "
-                f"more collaborative and integrated national film market [7]."
+                "One of the most remarkable phenomena of the 21st century is the rise of the 'Pan-India' film. "
+                "Originating primarily from the Telugu and Tamil industries, these films are designed to appeal "
+                "to audiences across linguistic boundaries. S.S. Rajamouli's Baahubali franchise (2015, 2017) demonstrated "
+                "that regional films, when backed by high production values, universal storytelling, and robust "
+                "marketing, could outperform Hindi films in their own traditional markets [6].\n\n"
+                "This shift is supported by box office statistics showing that Southern Indian regional cinema now "
+                "accounts for more than half of the national box office revenue. The success of films like RRR, KGF, and "
+                "Pushpa suggests a decentralization of creative and economic power away from Mumbai, leading to a "
+                "more collaborative and integrated national film market [7]."
             ), "subsections": []},
             {"heading": "V. THE DIGITAL SHIFT: OTT PLATFORMS AND STREAMING HEGEMONY", "content": (
                 f"The entry of global streaming giants like Netflix and Amazon Prime Video, alongside domestic "
@@ -760,15 +762,15 @@ def _build_cinema_writer(topic: str, target_word_count: int = 6600) -> dict:
                 f"increasingly migrate directly to streaming [8]."
             ), "subsections": []},
             {"heading": "VI. GLOBAL REACH AND CULTURAL SOFT POWER", "content": (
-                f"Indian cinema has long functioned as a primary instrument of cultural diplomacy and soft power. "
-                f"From Raj Kapoor's popularity in the Soviet Union during the Cold War to the contemporary success "
-                f"of Aamir Khan's films in China, Indian cinema has consistently crossed political and cultural boundaries. "
-                f"Films like Dangal and Secret Superstar grossed hundreds of millions of dollars in China, showcasing the "
-                f"universal appeal of Indian family-centric narratives [8].\n\n"
-                f"The global Indian diaspora has also played a crucial role in establishing the industry's international "
-                f"presence. The overseas theatrical market is now a vital component of a film's economic viability, with "
-                f"major releases receiving synchronized global openings in North America, Europe, the Middle East, and "
-                f"Australia, thereby cementing Indian cinema's position in the global media landscape [9]."
+                "Indian cinema has long functioned as a primary instrument of cultural diplomacy and soft power. "
+                "From Raj Kapoor's popularity in the Soviet Union during the Cold War to the contemporary success "
+                "of Aamir Khan's films in China, Indian cinema has consistently crossed political and cultural boundaries. "
+                "Films like Dangal and Secret Superstar grossed hundreds of millions of dollars in China, showcasing the "
+                "universal appeal of Indian family-centric narratives [8].\n\n"
+                "The global Indian diaspora has also played a crucial role in establishing the industry's international "
+                "presence. The overseas theatrical market is now a vital component of a film's economic viability, with "
+                "major releases receiving synchronized global openings in North America, Europe, the Middle East, and "
+                "Australia, thereby cementing Indian cinema's position in the global media landscape [9]."
             ), "subsections": []},
             {"heading": "VII. THEMATIC SHIFTS AND NARRATIVE EVOLUTION", "content": (
                 f"Narratively, {t} has evolved from the mythological and historical epics of the silent era to the "
@@ -866,7 +868,7 @@ def generate_cinema_completion(role: AgentRole, topic: str) -> str:
                 },
                 {
                     "heading": "Empirical Observations",
-                    "content": f"Through a series of box office analysis, the authors observed that integrating regional crossover appeal leads to a measurable increase in theatrical revenues."
+                    "content": "Through a series of box office analysis, the authors observed that integrating regional crossover appeal leads to a measurable increase in theatrical revenues."
                 }
             ],
             "key_findings": [
@@ -882,13 +884,13 @@ def generate_cinema_completion(role: AgentRole, topic: str) -> str:
         return json.dumps({
             "claims": [
                 {
-                    "claim": f"Regional cinema industries (Telugu, Tamil, Kannada) have surpassed Hindi-language cinema in box office collections.",
+                    "claim": "Regional cinema industries (Telugu, Tamil, Kannada) have surpassed Hindi-language cinema in box office collections.",
                     "evidence": "Box office data from 2021-2024 shows regional films contributing 52% of total national theatrical revenue.",
                     "confidence": 0.95,
                     "claim_type": "empirical"
                 },
                 {
-                    "claim": f"OTT streaming has altered the windowing period for theatrical film releases in India.",
+                    "claim": "OTT streaming has altered the windowing period for theatrical film releases in India.",
                     "evidence": "The traditional 8-week exclusive theatrical window has been compressed to 4 weeks for over 60% of mainstream releases.",
                     "confidence": 0.91,
                     "claim_type": "empirical"
@@ -900,14 +902,14 @@ def generate_cinema_completion(role: AgentRole, topic: str) -> str:
         return json.dumps({
             "critiques": [
                 {
-                    "claim": f"Regional cinema industries (Telugu, Tamil, Kannada) have surpassed Hindi-language cinema in box office collections.",
+                    "claim": "Regional cinema industries (Telugu, Tamil, Kannada) have surpassed Hindi-language cinema in box office collections.",
                     "is_valid": True,
                     "critique": "The claim is supported by comprehensive theatrical revenue databases across multiple languages.",
                     "evidence_quality": "strong",
                     "suggested_verification": "Verify with official producer council reports."
                 },
                 {
-                    "claim": f"OTT streaming has altered the windowing period for theatrical film releases in India.",
+                    "claim": "OTT streaming has altered the windowing period for theatrical film releases in India.",
                     "is_valid": True,
                     "critique": "The compression of theatrical windows is documented across all major distributors.",
                     "evidence_quality": "strong",
@@ -917,8 +919,8 @@ def generate_cinema_completion(role: AgentRole, topic: str) -> str:
             "overall_evidence_quality": "strong",
             "rejected_claims": [],
             "verified_claims": [
-                f"Regional cinema industries (Telugu, Tamil, Kannada) have surpassed Hindi-language cinema in box office collections.",
-                f"OTT streaming has altered the windowing period for theatrical film releases in India."
+                "Regional cinema industries (Telugu, Tamil, Kannada) have surpassed Hindi-language cinema in box office collections.",
+                "OTT streaming has altered the windowing period for theatrical film releases in India."
             ]
         }, indent=2)
 
@@ -927,7 +929,7 @@ def generate_cinema_completion(role: AgentRole, topic: str) -> str:
             "novelty_score": 0.89,
             "novel_contributions": [
                 f"A comprehensive economic mapping of the transition from single-screen exhibition to OTT streaming in {topic}.",
-                f"A comparative narrative study of regional crossover blockbusters vs. traditional Bollywood formulas."
+                "A comparative narrative study of regional crossover blockbusters vs. traditional Bollywood formulas."
             ],
             "existing_work_overlap": [
                 "General film industry economic studies and box office analysis frameworks.",
@@ -1520,15 +1522,15 @@ def generate_anfis_completion(role: AgentRole, topic: str) -> str:
     # Read HTML parts
     parts = {}
     for i in range(1, 11):
-        with open(os.path.join(output_dir, f"paper_part{i}.html"), "r", encoding="utf-8") as f:
+        with open(os.path.join(output_dir, f"paper_part{i}.html"), encoding="utf-8") as f:
             parts[i] = f.read()
             
     # Read css
-    with open(os.path.join(output_dir, "ieee_style.css"), "r", encoding="utf-8") as f:
-        css = f.read()
+    with open(os.path.join(output_dir, "ieee_style.css"), encoding="utf-8") as f:
+        f.read()
         
     # Read full combined paper
-    with open(os.path.join(output_dir, "paper.html"), "r", encoding="utf-8") as f:
+    with open(os.path.join(output_dir, "paper.html"), encoding="utf-8") as f:
         paper_html = f.read()
 
     abstract_text = (
@@ -2083,7 +2085,7 @@ def _build_generic_writer(topic: str, target_word_count: int = 6600) -> dict:
     # The base template generates ~6000 words, so scale proportionally
     base_words = 6000
     scale = max(target_word_count / base_words, 1.0) if target_word_count > 0 else 1.0
-    return {
+    result = {
         "title": f"A Comprehensive Analysis and Empirical Evaluation of {t}",
         "abstract": (
             f"This paper presents a rigorous and systematic investigation into {t}, examining its theoretical underpinnings, "
@@ -2231,13 +2233,13 @@ def _build_generic_writer(topic: str, target_word_count: int = 6600) -> dict:
                     f"interaction effects."
                 )},
                 {"heading": "C. Data Collection Protocol", "content": (
-                    f"The data collection protocol implements a multi-layered measurement strategy. At the infrastructure level, "
-                    f"hardware performance counters capture CPU utilization, cache hit rates, memory bandwidth, and I/O operations "
-                    f"per second. At the application level, instrumented code paths measure request processing latency at microsecond "
-                    f"granularity, queue depths, connection pool utilization, and garbage collection overhead. At the business logic "
-                    f"level, domain-specific metrics capture end-to-end transaction completion rates, data consistency violations, "
-                    f"and user-facing error rates. All measurements are time-stamped using a synchronized NTP clock with sub-millisecond "
-                    f"accuracy and stored in a high-performance time-series database for subsequent analysis."
+                    "The data collection protocol implements a multi-layered measurement strategy. At the infrastructure level, "
+                    "hardware performance counters capture CPU utilization, cache hit rates, memory bandwidth, and I/O operations "
+                    "per second. At the application level, instrumented code paths measure request processing latency at microsecond "
+                    "granularity, queue depths, connection pool utilization, and garbage collection overhead. At the business logic "
+                    "level, domain-specific metrics capture end-to-end transaction completion rates, data consistency violations, "
+                    "and user-facing error rates. All measurements are time-stamped using a synchronized NTP clock with sub-millisecond "
+                    "accuracy and stored in a high-performance time-series database for subsequent analysis."
                 )},
                 {"heading": "D. Implementation Details", "content": (
                     f"The implementation of {t} follows a modular software architecture consisting of five core components: "
@@ -2278,46 +2280,46 @@ def _build_generic_writer(topic: str, target_word_count: int = 6600) -> dict:
                 f"Analysis of the frequency response reveals a bandwidth of 47.3 rad/s and a phase margin of 62.8 degrees, "
                 f"confirming robust stability characteristics suitable for real-time deployment."
             ), "subsections": [{"heading": "A. Optimization Formulation", "content": (
-                f"The parameter optimization problem is formulated as a constrained nonlinear program. Let $\\theta \\in \\Theta$ "
-                f"denote the configuration parameter vector and $f(\\theta)$ the objective function to be maximized. The "
-                f"optimization problem is stated as: maximize $f(\\theta) = E[J(\\theta)]$ subject to $g_i(\\theta) \\leq 0$ for "
-                f"$i = 1, \\ldots, m$ and $h_j(\\theta) = 0$ for $j = 1, \\ldots, p$, where the constraints encode resource "
-                f"limitations, latency bounds, and reliability requirements [19]. The problem is solved using sequential quadratic "
-                f"programming (SQP) with analytical gradient computation."
+                "The parameter optimization problem is formulated as a constrained nonlinear program. Let $\\theta \\in \\Theta$ "
+                "denote the configuration parameter vector and $f(\\theta)$ the objective function to be maximized. The "
+                "optimization problem is stated as: maximize $f(\\theta) = E[J(\\theta)]$ subject to $g_i(\\theta) \\leq 0$ for "
+                "$i = 1, \\ldots, m$ and $h_j(\\theta) = 0$ for $j = 1, \\ldots, p$, where the constraints encode resource "
+                "limitations, latency bounds, and reliability requirements [19]. The problem is solved using sequential quadratic "
+                "programming (SQP) with analytical gradient computation."
             )}]},
             {"heading": "VI. EXPERIMENTAL SETUP AND SIMULATION", "content": (
-                f"The experimental environment consists of a cluster of 8 nodes, each equipped with a multi-core processor "
-                f"and 64 GB RAM, interconnected via a 10 Gbps network fabric. The software stack includes containerized "
-                f"microservices orchestrated through Kubernetes with resource limits configured according to production "
-                f"best practices [17].\n\n"
-                f"Workload generation utilizes a combination of synthetic patterns and replayed production traces to ensure "
-                f"ecological validity. The synthetic workloads follow a Poisson arrival process with rates ranging from "
-                f"100 to 10,000 requests per second. Production traces were collected over a 30-day period from a "
-                f"large-scale deployment serving approximately 2 million daily active users [18].\n\n"
-                f"Each experimental trial consists of a 5-minute warm-up phase followed by a 30-minute measurement phase. "
-                f"System metrics are collected at 100ms intervals and aggregated into 1-second windows for analysis. "
-                f"Statistical significance is assessed using the Wilcoxon signed-rank test with Bonferroni correction "
-                f"for multiple comparisons.\n\n"
-                f"The dataset characteristics are summarized in Table I. Three distinct workload categories are evaluated: "
-                f"web-serving workloads characterized by short-lived HTTP requests with high concurrency; data-processing "
-                f"workloads involving batch transformations of large datasets; and mixed workloads combining both patterns. "
-                f"Each category includes 10 distinct workload profiles derived from production traces, resulting in 30 unique "
-                f"experimental configurations per evaluation round.\n\n"
-                f"| Workload Type | Requests/s | Avg Payload | Concurrency | Duration |\n"
-                f"|---------------|-----------|-------------|-------------|----------|\n"
-                f"| Web-Serving | 1,000-10,000 | 2.4 KB | 100-500 | 30 min |\n"
-                f"| Data-Processing | 50-500 | 1.2 MB | 10-50 | 30 min |\n"
-                f"| Mixed | 500-5,000 | 48 KB | 50-250 | 30 min |\n\n"
-                f"The hardware configuration for each node consists of an AMD EPYC 7763 processor with 64 cores, 256 GB DDR4 "
-                f"ECC RAM, and two NVMe SSDs in RAID-1 configuration providing 3.5 GB/s sequential read throughput. Network "
-                f"connectivity is provided by dual Mellanox ConnectX-6 25GbE adapters with RDMA support."
+                "The experimental environment consists of a cluster of 8 nodes, each equipped with a multi-core processor "
+                "and 64 GB RAM, interconnected via a 10 Gbps network fabric. The software stack includes containerized "
+                "microservices orchestrated through Kubernetes with resource limits configured according to production "
+                "best practices [17].\n\n"
+                "Workload generation utilizes a combination of synthetic patterns and replayed production traces to ensure "
+                "ecological validity. The synthetic workloads follow a Poisson arrival process with rates ranging from "
+                "100 to 10,000 requests per second. Production traces were collected over a 30-day period from a "
+                "large-scale deployment serving approximately 2 million daily active users [18].\n\n"
+                "Each experimental trial consists of a 5-minute warm-up phase followed by a 30-minute measurement phase. "
+                "System metrics are collected at 100ms intervals and aggregated into 1-second windows for analysis. "
+                "Statistical significance is assessed using the Wilcoxon signed-rank test with Bonferroni correction "
+                "for multiple comparisons.\n\n"
+                "The dataset characteristics are summarized in Table I. Three distinct workload categories are evaluated: "
+                "web-serving workloads characterized by short-lived HTTP requests with high concurrency; data-processing "
+                "workloads involving batch transformations of large datasets; and mixed workloads combining both patterns. "
+                "Each category includes 10 distinct workload profiles derived from production traces, resulting in 30 unique "
+                "experimental configurations per evaluation round.\n\n"
+                "| Workload Type | Requests/s | Avg Payload | Concurrency | Duration |\n"
+                "|---------------|-----------|-------------|-------------|----------|\n"
+                "| Web-Serving | 1,000-10,000 | 2.4 KB | 100-500 | 30 min |\n"
+                "| Data-Processing | 50-500 | 1.2 MB | 10-50 | 30 min |\n"
+                "| Mixed | 500-5,000 | 48 KB | 50-250 | 30 min |\n\n"
+                "The hardware configuration for each node consists of an AMD EPYC 7763 processor with 64 cores, 256 GB DDR4 "
+                "ECC RAM, and two NVMe SSDs in RAID-1 configuration providing 3.5 GB/s sequential read throughput. Network "
+                "connectivity is provided by dual Mellanox ConnectX-6 25GbE adapters with RDMA support."
             ), "subsections": [{"heading": "A. Training and Validation Protocol", "content": (
-                f"The experimental data is partitioned using a stratified 5-fold cross-validation scheme to ensure robust "
-                f"performance estimation. Each fold maintains the proportional representation of all workload categories. "
-                f"Hyperparameter tuning is performed on a held-out validation set comprising 15% of the training data, using "
-                f"Bayesian optimization with a Gaussian process surrogate model. The search budget is limited to 200 evaluations "
-                f"per hyperparameter configuration. Model selection criteria include both performance metrics and computational "
-                f"cost, with the final model selected using the one-standard-error rule to favor simpler configurations [20]."
+                "The experimental data is partitioned using a stratified 5-fold cross-validation scheme to ensure robust "
+                "performance estimation. Each fold maintains the proportional representation of all workload categories. "
+                "Hyperparameter tuning is performed on a held-out validation set comprising 15% of the training data, using "
+                "Bayesian optimization with a Gaussian process surrogate model. The search budget is limited to 200 evaluations "
+                "per hyperparameter configuration. Model selection criteria include both performance metrics and computational "
+                "cost, with the final model selected using the one-standard-error rule to favor simpler configurations [20]."
             )}]},
             {"heading": "VII. RESULTS AND DISCUSSION", "content": (
                 f"The experimental results demonstrate that {t} achieves statistically significant performance improvements "
@@ -2351,15 +2353,15 @@ def _build_generic_writer(topic: str, target_word_count: int = 6600) -> dict:
                     f"the memory footprint."
                 )},
                 {"heading": "B. Ablation Study", "content": (
-                    f"To quantify the contribution of each component, we conduct a systematic ablation study by selectively "
-                    f"disabling individual modules. Removing the adaptive batching component reduces throughput by 8.3%, "
-                    f"confirming its role in optimizing request processing efficiency. Disabling the predictive prefetching "
-                    f"module increases P95 latency by 15.7%, as the system can no longer anticipate and pre-stage frequently "
-                    f"accessed resources. Eliminating the hierarchical caching layer results in a 12.1% throughput decrease "
-                    f"and a 23.4% increase in backend load, demonstrating the critical importance of the multi-level caching "
-                    f"strategy. The full system with all components enabled achieves performance that exceeds the sum of "
-                    f"individual component contributions by 4.2%, indicating positive synergistic interactions between the "
-                    f"design elements [22]."
+                    "To quantify the contribution of each component, we conduct a systematic ablation study by selectively "
+                    "disabling individual modules. Removing the adaptive batching component reduces throughput by 8.3%, "
+                    "confirming its role in optimizing request processing efficiency. Disabling the predictive prefetching "
+                    "module increases P95 latency by 15.7%, as the system can no longer anticipate and pre-stage frequently "
+                    "accessed resources. Eliminating the hierarchical caching layer results in a 12.1% throughput decrease "
+                    "and a 23.4% increase in backend load, demonstrating the critical importance of the multi-level caching "
+                    "strategy. The full system with all components enabled achieves performance that exceeds the sum of "
+                    "individual component contributions by 4.2%, indicating positive synergistic interactions between the "
+                    "design elements [22]."
                 )}
             ]},
             {"heading": "VIII. PERFORMANCE COMPARISON", "content": (
@@ -2389,16 +2391,16 @@ def _build_generic_writer(topic: str, target_word_count: int = 6600) -> dict:
                 f"coefficient of variation of 0.127, suggesting sensitivity to workload pattern changes [25]."
             ), "subsections": []},
             {"heading": "IX. LIMITATIONS", "content": (
-                f"Despite the promising results presented in this study, several limitations must be acknowledged. First, the "
-                f"evaluation is conducted on publicly available benchmark workloads that may not fully represent the diversity "
-                f"of real-world operational conditions. The controlled conditions under which experiments were conducted differ "
-                f"from the variable and often adverse conditions of production environments. Second, the computational requirements, "
-                f"while moderate by current standards, may present challenges for deployment in highly resource-constrained "
-                f"settings. Third, the generalizability to domains beyond those evaluated remains to be established through "
-                f"additional empirical investigation. Fourth, the current framework processes requests independently and does "
-                f"not explicitly model temporal dependencies that may exist between sequential operations. Finally, the "
-                f"mathematical model assumes stationary workload characteristics, which may not hold during periods of rapid "
-                f"demand fluctuation or system reconfiguration [24]."
+                "Despite the promising results presented in this study, several limitations must be acknowledged. First, the "
+                "evaluation is conducted on publicly available benchmark workloads that may not fully represent the diversity "
+                "of real-world operational conditions. The controlled conditions under which experiments were conducted differ "
+                "from the variable and often adverse conditions of production environments. Second, the computational requirements, "
+                "while moderate by current standards, may present challenges for deployment in highly resource-constrained "
+                "settings. Third, the generalizability to domains beyond those evaluated remains to be established through "
+                "additional empirical investigation. Fourth, the current framework processes requests independently and does "
+                "not explicitly model temporal dependencies that may exist between sequential operations. Finally, the "
+                "mathematical model assumes stationary workload characteristics, which may not hold during periods of rapid "
+                "demand fluctuation or system reconfiguration [24]."
             ), "subsections": []},
             {"heading": "X. CONCLUSION AND FUTURE WORK", "content": (
                 f"This paper presented a comprehensive analysis and empirical evaluation of {t}, establishing quantitative "
@@ -2507,17 +2509,17 @@ def _build_generic_writer(topic: str, target_word_count: int = 6600) -> dict:
             if "RESULTS" in sec["heading"].upper():
                 sec.setdefault("subsections", [])
                 sec["subsections"].append({"heading": "C. Statistical Significance Analysis", "content": (
-                    f"To ensure the reliability of the reported performance improvements, comprehensive statistical "
-                    f"significance testing was conducted across all evaluation metrics. The Shapiro-Wilk test confirmed "
-                    f"that the performance distributions deviate significantly from normality (p < 0.01 for all metrics), "
-                    f"necessitating the use of non-parametric statistical tests. The Wilcoxon signed-rank test was employed "
-                    f"for pairwise comparisons, with Bonferroni correction applied to account for multiple comparisons. "
-                    f"The effect sizes, quantified using Cohen's d, range from 0.82 to 1.47 across the primary metrics, "
-                    f"all classified as large effects according to conventional thresholds. The 95% bootstrap confidence "
-                    f"intervals for the throughput improvement are [21.3%, 26.1%], and for the latency reduction are "
-                    f"[28.7%, 33.8%], confirming that the observed improvements are both statistically significant and "
-                    f"practically meaningful. The inter-trial variance, measured by the coefficient of variation, is "
-                    f"consistently below 0.05 across all experimental conditions, indicating high measurement reliability."
+                    "To ensure the reliability of the reported performance improvements, comprehensive statistical "
+                    "significance testing was conducted across all evaluation metrics. The Shapiro-Wilk test confirmed "
+                    "that the performance distributions deviate significantly from normality (p < 0.01 for all metrics), "
+                    "necessitating the use of non-parametric statistical tests. The Wilcoxon signed-rank test was employed "
+                    "for pairwise comparisons, with Bonferroni correction applied to account for multiple comparisons. "
+                    "The effect sizes, quantified using Cohen's d, range from 0.82 to 1.47 across the primary metrics, "
+                    "all classified as large effects according to conventional thresholds. The 95% bootstrap confidence "
+                    "intervals for the throughput improvement are [21.3%, 26.1%], and for the latency reduction are "
+                    "[28.7%, 33.8%], confirming that the observed improvements are both statistically significant and "
+                    "practically meaningful. The inter-trial variance, measured by the coefficient of variation, is "
+                    "consistently below 0.05 across all experimental conditions, indicating high measurement reliability."
                 )})
                 sec["subsections"].append({"heading": "D. Cross-Environment Validation", "content": (
                     f"To assess the generalizability of the proposed approach, cross-environment validation experiments "
@@ -2537,17 +2539,17 @@ def _build_generic_writer(topic: str, target_word_count: int = 6600) -> dict:
         for sec in sections:
             if "LIMITATION" in sec["heading"].upper():
                 sec["content"] += (
-                    f"\n\nFifth, while the mathematical model provides accurate predictions under the tested conditions, "
-                    f"its assumptions of linearity in certain parameter interactions may not hold in all deployment "
-                    f"scenarios. Non-linear interaction effects, while observed to be small in our experiments, could "
-                    f"become significant under extreme operating conditions. Sixth, the evaluation focuses primarily on "
-                    f"steady-state performance and does not extensively characterize transient behavior during system "
-                    f"startup, scaling events, or failure recovery. Characterizing these transient dynamics represents "
-                    f"an important direction for future work, particularly for systems with strict availability requirements. "
-                    f"Seventh, the security implications of the adaptive configuration mechanisms have not been thoroughly "
-                    f"analyzed. While the system does not expose external attack surfaces by design, the internal parameter "
-                    f"adjustment logic could potentially be influenced by adversarial workload patterns designed to degrade "
-                    f"performance. A formal security analysis of the adaptive components is planned for future investigation."
+                    "\n\nFifth, while the mathematical model provides accurate predictions under the tested conditions, "
+                    "its assumptions of linearity in certain parameter interactions may not hold in all deployment "
+                    "scenarios. Non-linear interaction effects, while observed to be small in our experiments, could "
+                    "become significant under extreme operating conditions. Sixth, the evaluation focuses primarily on "
+                    "steady-state performance and does not extensively characterize transient behavior during system "
+                    "startup, scaling events, or failure recovery. Characterizing these transient dynamics represents "
+                    "an important direction for future work, particularly for systems with strict availability requirements. "
+                    "Seventh, the security implications of the adaptive configuration mechanisms have not been thoroughly "
+                    "analyzed. While the system does not expose external attack surfaces by design, the internal parameter "
+                    "adjustment logic could potentially be influenced by adversarial workload patterns designed to degrade "
+                    "performance. A formal security analysis of the adaptive components is planned for future investigation."
                 )
                 break
 
@@ -2579,11 +2581,11 @@ def _build_generic_ieee(topic: str, target_word_count: int = 6600) -> dict:
             f"[11] M. Anderson et al., \"Bridging Theory and Practice in {topic},\" ACM TOSEM, vol. 32, no. 4, pp. 1-42, Jul. 2023.",
             f"[12] J. Wilson and E. Martinez, \"Analytical Models for {topic},\" Performance Evaluation, vol. 160, p. 102345, Jun. 2023.",
             f"[13] H. Liu et al., \"Stochastic Modeling of {topic} Dynamics,\" IEEE TPDS, vol. 34, no. 6, pp. 1678-1692, Jun. 2023.",
-            f"[14] B. Efron and R. Tibshirani, \"An Introduction to the Bootstrap,\" Chapman and Hall, New York, USA, 1993.",
-            f"[15] R. Kohavi et al., \"Online Controlled Experiments at Large Scale,\" in Proc. ACM KDD, pp. 1168-1176, Aug. 2013.",
-            f"[16] S. Boyd and L. Vandenberghe, \"Convex Optimization,\" Cambridge University Press, Cambridge, UK, 2004.",
-            f"[17] B. Burns et al., \"Kubernetes: Up and Running,\" O'Reilly Media, Sebastopol, USA, 2nd ed., 2019.",
-            f"[18] N. Gunther, \"Guerrilla Capacity Planning,\" Springer, Berlin, Germany, 2007.",
+            "[14] B. Efron and R. Tibshirani, \"An Introduction to the Bootstrap,\" Chapman and Hall, New York, USA, 1993.",
+            "[15] R. Kohavi et al., \"Online Controlled Experiments at Large Scale,\" in Proc. ACM KDD, pp. 1168-1176, Aug. 2013.",
+            "[16] S. Boyd and L. Vandenberghe, \"Convex Optimization,\" Cambridge University Press, Cambridge, UK, 2004.",
+            "[17] B. Burns et al., \"Kubernetes: Up and Running,\" O'Reilly Media, Sebastopol, USA, 2nd ed., 2019.",
+            "[18] N. Gunther, \"Guerrilla Capacity Planning,\" Springer, Berlin, Germany, 2007.",
             f"[19] E. Martinez and A. Roberts, \"Production Benchmarking of {topic},\" in Proc. USENIX ATC, pp. 234-247, Jul. 2024.",
             f"[20] Y. Wang et al., \"Memory-Performance Tradeoffs in {topic},\" IEEE Computer, vol. 57, no. 3, pp. 56-65, Mar. 2024.",
             f"[21] F. Adams and G. Cooper, \"Machine Learning Approaches vs. {topic},\" in Proc. ICML, pp. 1234-1245, Jul. 2024.",

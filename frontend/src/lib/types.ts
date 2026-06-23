@@ -37,7 +37,7 @@ export interface AgentEvent {
 }
 
 export interface WSMessage {
-  type: "agent_event" | "status" | "pipeline_complete";
+  type: "agent_event" | "status" | "pipeline_complete" | "paper_chunk" | "pong";
   data: AgentEvent | Record<string, unknown>;
 }
 
@@ -85,7 +85,7 @@ export interface Source {
 export const AGENT_CONFIG: Record<string, { label: string; color: string; icon: string }> = {
   planner: { label: "Planner", color: "var(--color-agent-planner)", icon: "🧠" },
   search: { label: "Search", color: "var(--color-agent-search)", icon: "🔍" },
-  browser: { label: "Browser", color: "var(--color-agent-browser)", icon: "🌐" },
+  firecrawl_extract: { label: "Firecrawl Extract", color: "var(--color-agent-browser)", icon: "🌐" },
   reader: { label: "Reader", color: "var(--color-agent-reader)", icon: "📖" },
   claim_extractor: { label: "Claims", color: "var(--color-agent-claims)", icon: "⚡" },
   critic: { label: "Critic", color: "var(--color-agent-critic)", icon: "🔬" },
@@ -93,12 +93,14 @@ export const AGENT_CONFIG: Record<string, { label: string; color: string; icon: 
   citation: { label: "Citation", color: "var(--color-agent-citation)", icon: "📝" },
   writer: { label: "Writer", color: "var(--color-agent-writer)", icon: "✍️" },
   ieee_formatter: { label: "IEEE", color: "var(--color-agent-ieee)", icon: "📄" },
+  humanizer: { label: "Humanizer", color: "var(--color-agent-humanizer)", icon: "🎭" },
+  page_validator: { label: "Validator", color: "var(--color-agent-validator)", icon: "🛡️" },
 };
 
 export const PIPELINE_ORDER = [
   "planner",
   "search",
-  "browser",
+  "firecrawl_extract",
   "reader",
   "claim_extractor",
   "critic",
@@ -106,12 +108,14 @@ export const PIPELINE_ORDER = [
   "citation",
   "writer",
   "ieee_formatter",
+  "humanizer",
+  "page_validator",
 ];
 
 export const STATUS_TO_AGENT: Record<string, string> = {
   planning: "planner",
   searching: "search",
-  browsing: "browser",
+  browsing: "firecrawl_extract",
   reading: "reader",
   extracting: "claim_extractor",
   critiquing: "critic",
@@ -119,4 +123,71 @@ export const STATUS_TO_AGENT: Record<string, string> = {
   citing: "citation",
   writing: "writer",
   formatting: "ieee_formatter",
+  humanizing: "humanizer",
+  validating_pages: "page_validator",
 };
+
+// ── Pipeline Stages (user-facing progress) ─────────────
+
+export interface PipelineStage {
+  key: string;
+  label: string;
+  icon: string;
+  agents: string[];
+  parallel?: boolean;
+}
+
+export const PIPELINE_STAGES: PipelineStage[] = [
+  { key: "searching", label: "Searching", icon: "🔍", agents: ["planner", "search", "firecrawl_extract"] },
+  { key: "reading", label: "Reading", icon: "📖", agents: ["reader", "claim_extractor"], parallel: true },
+  { key: "writing", label: "Writing", icon: "✍️", agents: ["critic", "novelty", "writer"] },
+  { key: "citing", label: "Citing", icon: "📝", agents: ["citation"] },
+  { key: "formatting", label: "Formatting", icon: "📄", agents: ["ieee_formatter"] },
+  { key: "humanizing", label: "Humanizing", icon: "🧠", agents: ["humanizer"] },
+  { key: "exporting", label: "Exporting", icon: "📦", agents: ["page_validator"] },
+];
+
+export function getStageStatus(
+  stage: PipelineStage,
+  agents: PipelineAgent[]
+): "pending" | "active" | "completed" | "error" {
+  const stageAgents = agents.filter(a => stage.agents.includes(a.agent));
+  if (stageAgents.length === 0) {
+    return "pending";
+  }
+  if (stageAgents.some(a => a.status === "error")) return "error";
+  
+  const hasRunning = stageAgents.some(a => a.status === "running");
+  const allDone = stageAgents.every(a => a.status === "completed" || a.status === "skipped");
+  const someDone = stageAgents.some(a => a.status === "completed");
+  
+  if (stage.parallel) {
+    if (hasRunning || someDone) return "active";
+    if (allDone) return "completed";
+    return "pending";
+  }
+  
+  if (hasRunning) return "active";
+  if (allDone) return "completed";
+  if (someDone) return "active";
+  return "pending";
+}
+
+export function getCurrentStageIndex(agents: PipelineAgent[]): number {
+  for (let i = 0; i < PIPELINE_STAGES.length; i++) {
+    const status = getStageStatus(PIPELINE_STAGES[i], agents);
+    if (status === "active") return i;
+    if (status === "pending") return i;
+  }
+  return PIPELINE_STAGES.length - 1;
+}
+
+// ── Model Health ───────────────────────────────────────
+
+export interface ModelHealth {
+  provider: string;
+  displayName: string;
+  status: "online" | "degraded" | "offline";
+  latency?: number;
+  model: string;
+}

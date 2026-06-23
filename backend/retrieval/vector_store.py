@@ -3,8 +3,9 @@ Vector Store operations for Qdrant.
 """
 
 import structlog
+
 from memory.retrieval_mem import get_retrieval_memory
-from retrieval.embeddings import embed_texts, embed_query
+from retrieval.embeddings import embed_query, embed_texts
 
 logger = structlog.get_logger()
 

@@ -4,8 +4,8 @@ Executes search queries and returns deduplicated results.
 """
 
 from agents.base import BaseAgent
-from services.web_search import get_search_service
 from schemas.agents import SearchOutput
+from services.web_search import get_search_service
 
 
 class SearchAgent(BaseAgent):

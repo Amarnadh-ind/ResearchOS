@@ -4,10 +4,9 @@ Assesses research novelty and identifies gaps.
 """
 
 from agents.base import BaseAgent
-from services.llm import get_llm_client
 from config.models import AgentRole
 from schemas.agents import NoveltyAssessment
-
+from services.llm import get_llm_client
 
 NOVELTY_SYSTEM = """You are a research novelty assessment specialist. Analyze the collected research claims and identify:
 

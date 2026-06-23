@@ -1,16 +1,18 @@
-import sys
 import os
+import sys
+
 import pytest
 
 # Ensure backend directory is in the path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from services.content_expander import (
-    _detect_paper_topic,
     _classify_section,
+    _detect_paper_topic,
+    _heading_matches,
     expand_paper_content,
-    _heading_matches
 )
+
 
 def test_detect_paper_topic():
     paper = {"title": "A Study on Model Context Protocol in Enterprise"}

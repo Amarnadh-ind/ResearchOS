@@ -1,38 +1,62 @@
-import sys
 import os
+import sys
+from unittest.mock import patch
+
 import pytest
-from unittest.mock import AsyncMock, patch
 
 # Ensure backend directory is in the path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from fastapi.testclient import TestClient
+
 from main import app
 from services.llm_manager import LLMManager
 
 client = TestClient(app)
 
 @pytest.fixture
-def mock_health_check():
+def mock_health_check(monkeypatch):
     """Mock test_model_health to prevent real network requests."""
+    from services.quota_tracker import reset_quota_tracker
+    reset_quota_tracker()
+    
+    monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+    monkeypatch.setenv("GEMMA_API_KEY", "test-key")
+    monkeypatch.setenv("MANUS_API_KEY", "")
+    monkeypatch.setenv("OPENAI_API_KEY", "")
+    monkeypatch.setenv("OPENROUTER_API_KEY", "")
+    monkeypatch.setenv("GROK_API_KEY", "")
+    
+    from config.settings import get_settings
+    get_settings.cache_clear()
+    
+    LLMManager._discovered_gemma_models = ["gemma-4-31b", "gemma-4-26b"]
+    LLMManager._discovered_gemini_models = ["gemini-2.5-flash", "gemini-2.5-flash-lite"]
+    LLMManager._discovered_other_models = []
+    LLMManager._discovery_completed = True
+    LLMManager._model_diagnostics = {}
+    LLMManager._build_routing_pool()
+    
     LLMManager._discovered_status = {
         "gemini": "online",
         "gemma": "online",
         "manus": "online"
     }
-    LLMManager._discovered_gemma_models = ["gemma-4-31b", "gemma-4-26b"]
-    LLMManager._discovered_gemini_models = ["gemini-2.5-flash", "gemini-2.5-flash-lite"]
 
-    async def mock_health(provider, model):
-        # We simulate gemma-4-31b and gemini-2.5-flash as online, others offline
+    # Synchronously populate diagnostics for endpoints to query directly
+    for model in ["gemma-4-31b", "gemma-4-26b", "gemini-2.5-flash", "gemini-2.5-flash-lite"]:
         is_online = model in ("gemma-4-31b", "gemini-2.5-flash")
+        prov = "gemma" if "gemma" in model else "gemini"
         LLMManager._model_diagnostics[model] = {
             "connected": is_online,
             "latency": 120 if is_online else 0,
             "last_status": 200 if is_online else 500,
             "last_error": "" if is_online else "Simulated failure",
-            "provider": provider,
+            "provider": prov,
         }
+
+    async def mock_health(provider, model):
+        is_online = model in ("gemma-4-31b", "gemini-2.5-flash")
         return is_online
         
     with patch.object(LLMManager, "test_model_health", side_effect=mock_health) as mock:
@@ -97,9 +121,9 @@ def test_system_diagnostics_endpoint(mock_health_check):
     assert "api_connected" in data
     assert "provider_details" in data
     
-    # Since mock_health has gemma-4-31b online, it should show as active provider/model
-    assert data["provider"] == "gemma"
-    assert data["model"] == "gemma-4-31b"
+    # Since gemini-2.5-flash (P10) is the highest priority online model, it should show as active provider/model
+    assert data["provider"] == "gemini"
+    assert data["model"] == "gemini-2.5-flash"
     assert data["api_connected"] is True
     
     provider_details = data["provider_details"]

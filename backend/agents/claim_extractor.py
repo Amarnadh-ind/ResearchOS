@@ -5,10 +5,10 @@ RULE-1: NO EVIDENCE = NO CLAIM
 """
 
 from agents.base import BaseAgent
-from services.llm import get_llm_client
 from config.models import AgentRole
-from schemas.agents import ExtractedClaim, ClaimExtractionOutput
-
+from config.settings import get_settings
+from schemas.agents import ClaimExtractionOutput, ExtractedClaim
+from services.llm import get_llm_client
 
 CLAIM_SYSTEM = """You are a precise claim extraction system. Extract specific, verifiable claims from research documents.
 
@@ -41,9 +41,13 @@ class ClaimExtractorAgent(BaseAgent):
     async def execute(self, input_data: dict, context: dict) -> dict:
         llm = get_llm_client()
         documents = input_data.get("documents", [])
+        is_fast = get_settings().fast_mode
+        max_claims = 10 if is_fast else 9999
         all_claims: list[ExtractedClaim] = []
 
         for doc in documents:
+            if len(all_claims) >= max_claims:
+                break
             summary = doc.get("summary", "")
             findings = doc.get("key_findings", [])
             sections = doc.get("sections", [])

@@ -3,12 +3,10 @@ Agent 1: Planner Agent
 Decomposes research prompts into structured research plans.
 """
 
-import json
 from agents.base import BaseAgent
-from services.llm import get_llm_client
 from config.models import AgentRole
 from schemas.agents import ResearchPlan
-
+from services.llm import get_llm_client
 
 PLANNER_SYSTEM = """You are a research planning specialist. Given a research prompt, create a comprehensive research plan.
 

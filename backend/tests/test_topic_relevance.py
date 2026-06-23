@@ -1,11 +1,17 @@
-import sys
 import os
+import sys
+
 import pytest
 
 # Ensure backend directory is in the path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from services.relevance_checker import calculate_relevance, ensure_paragraph_relevance, get_domain_forbidden_terms
+from services.relevance_checker import (
+    calculate_relevance,
+    ensure_paragraph_relevance,
+    get_domain_forbidden_terms,
+)
+
 
 def test_ev_topic_forbidden_terms():
     # If the topic is Electric Vehicles, it should block CNN, Transformer, ResNet, etc.

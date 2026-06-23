@@ -5,10 +5,9 @@ RULE-6: Critique phase mandatory.
 """
 
 from agents.base import BaseAgent
-from services.llm import get_llm_client
 from config.models import AgentRole
 from schemas.agents import CriticOutput, CritiqueResult
-
+from services.llm import get_llm_client
 
 CRITIC_SYSTEM = """You are a rigorous academic critic. Evaluate each claim against its evidence.
 

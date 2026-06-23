@@ -3,9 +3,9 @@ Base Agent Protocol
 Defines the contract all agents must implement.
 """
 
-from abc import ABC, abstractmethod
-from typing import Any
 import time
+from abc import ABC, abstractmethod
+
 import structlog
 
 logger = structlog.get_logger()
@@ -24,7 +24,7 @@ class BaseAgent(ABC):
     async def run(self, input_data: dict, context: dict) -> dict:
         """Run the agent with logging, timing, and error handling."""
         start = time.monotonic()
-        logger.info(f"agent_start", agent=self.name)
+        logger.info("agent_start", agent=self.name)
 
         try:
             result = await self.execute(input_data, context)

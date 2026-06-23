@@ -3,8 +3,8 @@ Research State
 TypedDict defining the full state flowing through the LangGraph pipeline.
 """
 
-from typing import TypedDict, Annotated
 from operator import add
+from typing import Annotated, TypedDict
 
 
 class ResearchState(TypedDict, total=False):
@@ -46,6 +46,12 @@ class ResearchState(TypedDict, total=False):
     browsed_pages: list[dict]
     failed_urls: list[str]
 
+    # ── Firecrawl Diagnostics ────────────────────────────
+    firecrawl_requests: int
+    firecrawl_success: int
+    firecrawl_failed: int
+    firecrawl_latency_ms: int
+
     # ── Reader Output ────────────────────────────────────
     documents: list[dict]
 
@@ -81,6 +87,14 @@ class ResearchState(TypedDict, total=False):
     # ── IEEE Output ──────────────────────────────────────
     final_paper: dict
     content_markdown: str
+
+    # ── Critic / Revision ────────────────────────────────
+    paper_critique: dict        # Critic feedback on written paper
+    paper_revision: dict        # Revised paper content from writer_revision
+
+    # ── Timing Telemetry ─────────────────────────────────
+    pipeline_start_time: float  # time.monotonic() at pipeline start
+    timing: dict                # {"planner_ms": N, "search_ms": N, ...}
 
     # ── Pipeline Control ─────────────────────────────────
     relevance_attempts: int

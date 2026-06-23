@@ -4,13 +4,13 @@ Converts the paper draft into IEEE-compliant format.
 Enforces word count requirements and validates content length.
 """
 
+import structlog
+
 from agents.base import BaseAgent
-from services.llm import get_llm_client
 from config.models import AgentRole
 from schemas.agents import IEEEPaper
+from services.llm import get_llm_client
 from services.page_budget import count_paper_words
-
-import structlog
 
 logger = structlog.get_logger()
 
@@ -64,7 +64,9 @@ class IEEEFormatterAgent(BaseAgent):
     name = "ieee_formatter"
 
     async def execute(self, input_data: dict, context: dict) -> dict:
-        llm = get_llm_client()
+        from config.settings import get_settings
+        settings = get_settings()
+        is_fast = settings.fast_mode and settings.fast_mode_skip_ieee_llm
 
         title = input_data.get("title", "")
         abstract = input_data.get("abstract", "")
@@ -72,9 +74,45 @@ class IEEEFormatterAgent(BaseAgent):
         conclusion = input_data.get("conclusion", "")
         citations = input_data.get("citations", [])
         target_word_count = input_data.get("target_word_count", 6000)
-        topic = input_data.get("prompt") or title
 
-        # Format sections for the formatter
+        if is_fast:
+            ieee_sections = []
+            roman_numerals = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"]
+            for idx, section in enumerate(sections):
+                heading = section.get("heading", "")
+                if not any(heading.upper().startswith(f"{r}.") for r in roman_numerals):
+                    r_num = roman_numerals[idx] if idx < len(roman_numerals) else str(idx + 1)
+                    heading = f"{r_num}. {heading.upper()}"
+                ieee_sections.append({
+                    "heading": heading,
+                    "content": section.get("content", ""),
+                    "subsections": section.get("subsections", []),
+                })
+            if conclusion:
+                r_num = roman_numerals[len(ieee_sections)] if len(ieee_sections) < len(roman_numerals) else str(len(ieee_sections) + 1)
+                ieee_sections.append({
+                    "heading": f"{r_num}. CONCLUSION",
+                    "content": conclusion,
+                    "subsections": [],
+                })
+            refs = []
+            for i, c in enumerate(citations[:30]):
+                refs.append(c.get("ieee_format", c.get("title", f"[{i+1}] {c.get('url', '')}")))
+            paper_dict = {
+                "title": title,
+                "authors": ["ResearchOS Autonomous System"],
+                "abstract": abstract,
+                "keywords": input_data.get("keywords", input_data.get("prompt", "").split()[:5]),
+                "sections": ieee_sections,
+                "references": refs,
+                "conclusion": conclusion,
+            }
+            paper_dict["content_markdown"] = self._build_markdown(paper_dict)
+            logger.info("ieee_formatter_skipped_llm_fast_mode", sections=len(ieee_sections))
+            return paper_dict
+
+        llm = get_llm_client()
+
         sections_text = ""
         for section in sections:
             sections_text += f"\n## {section.get('heading', '')}\n{section.get('content', '')}\n"
@@ -109,7 +147,6 @@ Format as a proper IEEE paper with all formatting conventions. PRESERVE ALL CONT
             user_prompt=user_prompt,
         )
 
-        # Build full markdown content
         content_md = self._build_markdown(result)
 
         paper = IEEEPaper(
@@ -124,7 +161,6 @@ Format as a proper IEEE paper with all formatting conventions. PRESERVE ALL CONT
 
         paper_dict = paper.model_dump()
 
-        # ── Validate word count ─────────────────────────────
         word_stats = count_paper_words(paper_dict)
         body_words = word_stats["body_words"]
 
@@ -136,18 +172,15 @@ Format as a proper IEEE paper with all formatting conventions. PRESERVE ALL CONT
         )
 
         if body_words < target_word_count * 0.5:
-            # Formatter severely truncated — use original sections instead
             logger.warning(
                 "ieee_formatter_truncated_using_original",
                 formatted_words=body_words,
                 target=target_word_count,
             )
-            # Preserve original sections with IEEE headings
             ieee_sections = []
             roman_numerals = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"]
             for idx, section in enumerate(sections):
                 heading = section.get("heading", "")
-                # Add roman numeral if not present
                 if not any(heading.upper().startswith(f"{r}.") for r in roman_numerals):
                     r_num = roman_numerals[idx] if idx < len(roman_numerals) else str(idx + 1)
                     heading = f"{r_num}. {heading.upper()}"
@@ -156,8 +189,6 @@ Format as a proper IEEE paper with all formatting conventions. PRESERVE ALL CONT
                     "content": section.get("content", ""),
                     "subsections": section.get("subsections", []),
                 })
-
-            # Add conclusion as final section
             if conclusion:
                 r_num = roman_numerals[len(ieee_sections)] if len(ieee_sections) < len(roman_numerals) else str(len(ieee_sections) + 1)
                 ieee_sections.append({
@@ -165,30 +196,7 @@ Format as a proper IEEE paper with all formatting conventions. PRESERVE ALL CONT
                     "content": conclusion,
                     "subsections": [],
                 })
-
             paper_dict["sections"] = ieee_sections
-
-        # Enforce hard topic lock on formatted output
-        from services.relevance_checker import ensure_paragraph_relevance
-
-        async def clean_text(text: str) -> str:
-            if not text:
-                return ""
-            paragraphs = text.split("\n\n")
-            cleaned_paragraphs = []
-            for p in paragraphs:
-                if p.strip():
-                    cleaned_p = await ensure_paragraph_relevance(p, topic)
-                    cleaned_paragraphs.append(cleaned_p)
-                else:
-                    cleaned_paragraphs.append(p)
-            return "\n\n".join(cleaned_paragraphs)
-
-        paper_dict["abstract"] = await clean_text(paper_dict.get("abstract", ""))
-        for sec in paper_dict.get("sections", []):
-            sec["content"] = await clean_text(sec.get("content", ""))
-            for sub in sec.get("subsections", []):
-                sub["content"] = await clean_text(sub.get("content", ""))
 
         paper_dict["content_markdown"] = self._build_markdown(paper_dict)
 

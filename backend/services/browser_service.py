@@ -4,8 +4,8 @@ HTTP-based web scraping with content extraction.
 Uses httpx + BeautifulSoup instead of Playwright to avoid subprocess issues on Windows.
 """
 
-import structlog
 import httpx
+import structlog
 from bs4 import BeautifulSoup
 from markdownify import markdownify as md
 
@@ -54,7 +54,9 @@ class BrowserService:
         await self.start()
 
         try:
-            response = await self._client.get(url)
+            response = await self._client.get(
+                url, timeout=httpx.Timeout(timeout / 1000, connect=10.0)
+            )
             response.raise_for_status()
 
             # Check if it is a PDF

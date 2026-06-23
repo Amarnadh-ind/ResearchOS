@@ -5,9 +5,9 @@ Falls back to in-memory storage when PostgreSQL is unavailable.
 """
 
 import json
-import structlog
 from datetime import datetime
-from uuid import UUID
+
+import structlog
 
 from config.settings import get_settings
 
@@ -28,6 +28,10 @@ class InMemoryMetadataBackend:
     def _next_id(self) -> str:
         self._counter += 1
         return str(self._counter)
+
+    async def get_active_session_ids(self) -> list[str]:
+        transient_statuses = {"pending", "planning", "searching", "browsing", "reading", "extracting", "critiquing", "analyzing_novelty", "writing", "citing", "formatting"}
+        return [sid for sid, s in self._sessions.items() if s.get("status") in transient_statuses]
 
     async def create_session(self, session_id: str, prompt: str) -> dict:
         session = {
@@ -99,6 +103,16 @@ class InMemoryMetadataBackend:
         sessions = sorted(self._sessions.values(), key=lambda s: s.get("created_at", ""), reverse=True)
         return sessions[:limit]
 
+    async def get_paper_by_session(self, session_id: str) -> dict | None:
+        """Find a paper by session_id."""
+        for pid, paper in self._papers.items():
+            if paper.get("session_id") == session_id:
+                paper_dict = dict(paper)
+                if "content_md" in paper_dict and "content_markdown" not in paper_dict:
+                    paper_dict["content_markdown"] = paper_dict["content_md"]
+                return paper_dict
+        return None
+
     async def disconnect(self):
         pass
 
@@ -117,8 +131,8 @@ class MetadataStore:
 
         settings = get_settings()
         try:
-            from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
             from sqlalchemy import text
+            from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
             engine = create_async_engine(
                 settings.postgres_dsn,
@@ -161,6 +175,22 @@ class MetadataStore:
             await self._engine.dispose()
         elif self._backend == "memory":
             await self._memory.disconnect()
+
+    async def get_active_session_ids(self) -> list[str]:
+        await self._ensure_backend()
+        if self._using_fallback:
+            return await self._memory.get_active_session_ids()
+
+        from sqlalchemy import text
+        async with self._session_factory() as db:
+            result = await db.execute(
+                text("""
+                    SELECT id FROM research_sessions
+                    WHERE status NOT IN ('completed', 'failed')
+                """)
+            )
+            rows = result.mappings().all()
+            return [str(row["id"]) for row in rows]
 
     async def create_session(self, session_id: str, prompt: str) -> dict:
         await self._ensure_backend()
@@ -409,6 +439,29 @@ class MetadataStore:
                     logger.info("postgres_metadata_cleared")
                 except Exception as e:
                     logger.error("failed_clearing_postgres_metadata", error=str(e))
+
+    async def get_paper_by_session(self, session_id: str) -> dict | None:
+        """Get paper by session_id from either backend."""
+        await self._ensure_backend()
+        if self._using_fallback:
+            return await self._memory.get_paper_by_session(session_id)
+
+        from sqlalchemy import text
+        try:
+            async with self._session_factory() as db:
+                result = await db.execute(
+                    text("SELECT * FROM papers WHERE session_id = :sid ORDER BY id DESC LIMIT 1"),
+                    {"sid": session_id},
+                )
+                row = result.mappings().first()
+                if row:
+                    paper_dict = dict(row)
+                    if "content_md" in paper_dict and "content_markdown" not in paper_dict:
+                        paper_dict["content_markdown"] = paper_dict["content_md"]
+                    return paper_dict
+        except Exception as e:
+            logger.error("get_paper_by_session_failed", session_id=session_id, error=str(e))
+        return None
 
 
 

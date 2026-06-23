@@ -1,94 +1,125 @@
 """
 LangGraph Research Workflow
-Defines the StateGraph for the full research pipeline.
+Defines the StateGraph for the research pipeline.
 
-Pipeline:
-Prompt → Planner → Search → Browser → Reader → Claim Extractor
-→ Critic → Novelty → Citation → Writer → IEEE Formatter
-→ Page Validator (loops until page count is met) → Final Paper
+Pipeline (SEQUENTIAL — no broken parallelism):
+Prompt -> Planner -> Search -> Firecrawl -> Reader -> ClaimExtractor
+       -> Critic -> Citation+Novelty (parallel, safe) -> Writer
+       -> CriticPaper -> WriterRevision -> IEEEFormatter
+       -> Humanizer -> PageValidator -> Done
 """
 
-import structlog
-from langgraph.graph import StateGraph, START, END
+import asyncio
 
-from graph.state import ResearchState
+import structlog
+from langgraph.graph import END, START, StateGraph
+
 from graph.nodes import (
-    planner_node,
-    search_node,
-    browser_node,
-    reader_node,
+    citation_node,
     claim_extractor_node,
     critic_node,
-    novelty_node,
-    citation_node,
-    writer_node,
-    ieee_formatter_node,
-    page_validation_node,
+    critic_paper_node,
+    firecrawl_extract_node,
     humanizer_node,
+    ieee_formatter_node,
+    novelty_node,
+    page_validation_node,
+    planner_node,
+    reader_node,
+    search_node,
+    writer_node,
+    writer_revision_node,
 )
+from graph.state import ResearchState
 
 logger = structlog.get_logger()
 
 
 def should_continue(state: ResearchState) -> str:
-    """Route based on pipeline status. Stops on failure."""
+    """Route based on current_agent. Stops on failure."""
     status = state.get("status", "")
     if status == "failed":
         return END
 
     agent = state.get("current_agent", "")
     route_map = {
-        "search": "search",
-        "browser": "browser",
-        "reader": "reader",
-        "claim_extractor": "claim_extractor",
-        "critic": "critic",
-        "novelty": "novelty",
-        "citation": "citation",
-        "writer": "writer",
-        "ieee_formatter": "ieee_formatter",
-        "humanizer": "humanizer",
-        "page_validator": "page_validator",
+        # Sequential pipeline — each node routes to the next
+        "planner": "search",
+        "search": "firecrawl_extract",
+        "firecrawl_extract": "reader",
+        "reader": "claim_extractor",
+        "claim_extractor": "critic",
+        "critic": "citation_novelty",
+        "citation_novelty": "writer",
+        "writer": "critic_paper",
+        "critic_paper": "writer_revision",
+        "writer_revision": "ieee_formatter",
+        "ieee_formatter": "humanizer",
+        "humanizer": "page_validator",
+        "page_validator": "done",
+
+        # Terminal
         "done": END,
     }
-    return route_map.get(agent, END)
+    result = route_map.get(agent, END)
+    logger.info("workflow_routing", current_agent=agent, next_node=result)
+    return result
 
 
-def page_validation_router(state: ResearchState) -> str:
-    """Route after page validation: loop back if pages short, else finish."""
-    status = state.get("status", "")
-    if status == "failed":
-        return END
-    if status == "completed":
-        return END
+async def _citation_novelty_parallel_executor(state: ResearchState) -> dict:
+    """Execute Citation and Novelty in parallel.
+    These are safe to parallelize — both only read existing state."""
+    citation_task = citation_node(state)
+    novelty_task = novelty_node(state)
 
-    agent = state.get("current_agent", "")
-    if agent == "page_validator":
-        # Loop back to self for expansion
-        return "page_validator"
-    if agent == "writer":
-        return "writer"
-    if agent == "done":
-        return END
+    citation_result, novelty_result = await asyncio.gather(
+        citation_task, novelty_task, return_exceptions=True
+    )
 
-    return END
+    merged_state = {}
+    if isinstance(citation_result, Exception):
+        logger.error(f"Citation failed in parallel execution: {citation_result}")
+        # Citation failure is NOT fatal — use fallback
+        merged_state.update({
+            "citations": [],
+            "in_text_map": {},
+            "writer_citation_status": "Citation Review Required",
+        })
+    else:
+        merged_state.update(citation_result)
+
+    if isinstance(novelty_result, Exception):
+        logger.error(f"Novelty failed in parallel execution: {novelty_result}")
+        # Novelty failure is never fatal
+        merged_state.update({
+            "novelty_score": 0.5,
+            "novel_contributions": [],
+            "research_gaps": [],
+        })
+    else:
+        merged_state.update(novelty_result)
+
+    # Route to writer next
+    merged_state["current_agent"] = "citation_novelty"
+    return merged_state
 
 
 def build_research_graph() -> StateGraph:
-    """Build the LangGraph research pipeline with page validation loop."""
+    """Build the LangGraph research pipeline — fully sequential, no race conditions."""
 
     graph = StateGraph(ResearchState)
 
     # ── Add nodes ────────────────────────────────────────
     graph.add_node("planner", planner_node)
     graph.add_node("search", search_node)
-    graph.add_node("browser", browser_node)
+    graph.add_node("firecrawl_extract", firecrawl_extract_node)
     graph.add_node("reader", reader_node)
     graph.add_node("claim_extractor", claim_extractor_node)
     graph.add_node("critic", critic_node)
-    graph.add_node("novelty", novelty_node)
-    graph.add_node("citation", citation_node)
+    graph.add_node("citation_novelty", _citation_novelty_parallel_executor)
     graph.add_node("writer", writer_node)
+    graph.add_node("critic_paper", critic_paper_node)
+    graph.add_node("writer_revision", writer_revision_node)
     graph.add_node("ieee_formatter", ieee_formatter_node)
     graph.add_node("humanizer", humanizer_node)
     graph.add_node("page_validator", page_validation_node)
@@ -96,21 +127,20 @@ def build_research_graph() -> StateGraph:
     # ── Entry point ──────────────────────────────────────
     graph.add_edge(START, "planner")
 
-    # ── Conditional routing after each node ──────────────
+    # ── All nodes route via should_continue ──────────────
     graph.add_conditional_edges("planner", should_continue)
     graph.add_conditional_edges("search", should_continue)
-    graph.add_conditional_edges("browser", should_continue)
+    graph.add_conditional_edges("firecrawl_extract", should_continue)
     graph.add_conditional_edges("reader", should_continue)
     graph.add_conditional_edges("claim_extractor", should_continue)
     graph.add_conditional_edges("critic", should_continue)
-    graph.add_conditional_edges("novelty", should_continue)
-    graph.add_conditional_edges("citation", should_continue)
+    graph.add_conditional_edges("citation_novelty", should_continue)
     graph.add_conditional_edges("writer", should_continue)
+    graph.add_conditional_edges("critic_paper", should_continue)
+    graph.add_conditional_edges("writer_revision", should_continue)
     graph.add_conditional_edges("ieee_formatter", should_continue)
     graph.add_conditional_edges("humanizer", should_continue)
-
-    # Page validator can loop back to itself or finish
-    graph.add_conditional_edges("page_validator", page_validation_router)
+    graph.add_conditional_edges("page_validator", should_continue)
 
     return graph
 

@@ -1,6 +1,9 @@
-import sys
 import os
+import sys
+
 import pytest
+
+from services.relevance_checker import calculate_relevance, ensure_paragraph_relevance
 
 # Ensure backend directory is in the path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -24,7 +27,6 @@ def mock_embeddings(monkeypatch):
     monkeypatch.setattr("retrieval.embeddings.embed_query_sync", mock_embed)
     monkeypatch.setattr("retrieval.embeddings.cosine_similarity", mock_cos_sim)
 
-from services.relevance_checker import calculate_relevance, ensure_paragraph_relevance
 
 def test_calculate_relevance_technical():
     # Technical topic

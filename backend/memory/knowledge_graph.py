@@ -4,7 +4,7 @@ Graph-based knowledge storage for claims, concepts, and relationships.
 """
 
 import structlog
-from neo4j import AsyncGraphDatabase, AsyncDriver
+from neo4j import AsyncDriver, AsyncGraphDatabase
 
 from config.settings import get_settings
 
@@ -12,7 +12,8 @@ logger = structlog.get_logger()
 
 
 class KnowledgeGraph:
-    """Neo4j-backed knowledge graph for research relationships."""
+    """Neo4j-backed knowledge graph for research relationships.
+    Falls back to in-memory storage when Neo4j is unavailable."""
 
     def __init__(self):
         settings = get_settings()
@@ -20,16 +21,23 @@ class KnowledgeGraph:
         self._uri = settings.neo4j_uri
         self._user = settings.neo4j_user
         self._password = settings.neo4j_password
+        self._using_fallback = False
+        self._in_memory_claims: list[dict] = []
+        self._in_memory_concepts: list[dict] = []
 
     async def connect(self):
-        if self._driver is None:
-            self._driver = AsyncGraphDatabase.driver(
-                self._uri, auth=(self._user, self._password)
-            )
-            # Verify connectivity
-            async with self._driver.session() as session:
-                await session.run("RETURN 1")
-            logger.info("neo4j_connected")
+        if self._driver is None and not self._using_fallback:
+            try:
+                self._driver = AsyncGraphDatabase.driver(
+                    self._uri, auth=(self._user, self._password)
+                )
+                # Verify connectivity
+                async with self._driver.session() as session:
+                    await session.run("RETURN 1")
+                logger.info("neo4j_connected")
+            except Exception as e:
+                logger.warning("neo4j_unavailable_using_memory", error=str(e))
+                self._using_fallback = True
 
     async def disconnect(self):
         if self._driver:
@@ -45,6 +53,13 @@ class KnowledgeGraph:
         confidence: float,
     ):
         """Add a claim node with source relationship."""
+        if self._using_fallback:
+            self._in_memory_claims.append({
+                "id": claim_id, "session_id": session_id,
+                "text": claim_text, "source_url": source_url,
+                "confidence": confidence,
+            })
+            return
         await self.connect()
         async with self._driver.session() as session:
             await session.run(
@@ -74,6 +89,12 @@ class KnowledgeGraph:
         session_id: str,
     ):
         """Add or merge a relationship between concepts."""
+        if self._using_fallback:
+            self._in_memory_concepts.append({
+                "source": concept_a, "target": concept_b,
+                "type": relation, "session": session_id,
+            })
+            return
         await self.connect()
         async with self._driver.session() as session:
             await session.run(
@@ -90,6 +111,8 @@ class KnowledgeGraph:
 
     async def get_claims_for_session(self, session_id: str) -> list[dict]:
         """Retrieve all claims for a session with their sources."""
+        if self._using_fallback:
+            return [c for c in self._in_memory_claims if c.get("session_id") == session_id]
         await self.connect()
         async with self._driver.session() as session:
             result = await session.run(
@@ -106,6 +129,13 @@ class KnowledgeGraph:
 
     async def get_concept_graph(self, session_id: str) -> dict:
         """Get the concept graph for a session."""
+        if self._using_fallback:
+            edges = [c for c in self._in_memory_concepts if c.get("session") == session_id]
+            nodes = set()
+            for e in edges:
+                nodes.add(e["source"])
+                nodes.add(e["target"])
+            return {"nodes": list(nodes), "edges": edges}
         await self.connect()
         async with self._driver.session() as session:
             result = await session.run(
@@ -124,6 +154,11 @@ class KnowledgeGraph:
 
     async def clear(self):
         """Clear all nodes and relationships in the Neo4j database."""
+        if self._using_fallback:
+            self._in_memory_claims.clear()
+            self._in_memory_concepts.clear()
+            logger.info("in_memory_graph_cleared")
+            return
         await self.connect()
         try:
             async with self._driver.session() as session:
