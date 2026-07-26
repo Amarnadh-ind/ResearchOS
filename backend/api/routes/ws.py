@@ -22,15 +22,37 @@ PREVIEW_LIMIT = 250
 ACTIVITY_MESSAGE_LIMIT = 300
 
 # Keys that contain large payloads — strip from activity events
-LARGE_PAYLOAD_KEYS = {"prompt", "response", "raw_llm_output", "content", "content_markdown", "writer_prompt"}
+LARGE_PAYLOAD_KEYS = {
+    "prompt",
+    "response",
+    "raw_llm_output",
+    "content",
+    "content_markdown",
+    "writer_prompt",
+}
 
 # Keys that are metadata — keep as-is in activity events
 METADATA_KEYS = {
-    "provider", "model", "tokens_in", "tokens_out", "token_count",
-    "cost", "latency", "latency_ms", "response_length", "status",
-    "topic", "agent", "type", "error", "duration_ms",
-    "total_claims", "total_results", "queries_executed",
-    "novelty_score", "overall_evidence_quality",
+    "provider",
+    "model",
+    "tokens_in",
+    "tokens_out",
+    "token_count",
+    "cost",
+    "latency",
+    "latency_ms",
+    "response_length",
+    "status",
+    "topic",
+    "agent",
+    "type",
+    "error",
+    "duration_ms",
+    "total_claims",
+    "total_results",
+    "queries_executed",
+    "novelty_score",
+    "overall_evidence_quality",
 }
 
 
@@ -43,8 +65,8 @@ def preview(text: str | None, limit: int = PREVIEW_LIMIT) -> str:
 
 def strip_event_for_activity(event: dict) -> dict:
     """Strip large payloads from an event, keeping only metadata + previews.
-    
-    Full content is stored in backend and accessible via 
+
+    Full content is stored in backend and accessible via
     Sources, Paper, and Diagnostics tabs.
     """
     if not isinstance(event, dict):
@@ -77,7 +99,10 @@ def strip_event_for_activity(event: dict) -> dict:
             # Nested objects: include summary, not full content
             serialized = json.dumps(value, default=str)
             if len(serialized) > ACTIVITY_MESSAGE_LIMIT:
-                stripped_data[key] = {"_preview": f"[Object: {len(value)} keys]", "_size": len(serialized)}
+                stripped_data[key] = {
+                    "_preview": f"[Object: {len(value)} keys]",
+                    "_size": len(serialized),
+                }
             else:
                 stripped_data[key] = value
         elif isinstance(value, list):
@@ -99,7 +124,10 @@ def strip_event_for_activity(event: dict) -> dict:
                         stripped_list.append(item)
                 stripped_data[key] = stripped_list
             elif len(value) > 5:
-                stripped_data[key] = {"_preview": f"[Array: {len(value)} items]", "_count": len(value)}
+                stripped_data[key] = {
+                    "_preview": f"[Array: {len(value)} items]",
+                    "_count": len(value),
+                }
             else:
                 stripped_data[key] = value
         else:
@@ -112,7 +140,7 @@ def strip_event_for_activity(event: dict) -> dict:
 @router.websocket("/ws/research/{session_id}")
 async def research_websocket(websocket: WebSocket, session_id: str):
     """WebSocket endpoint for live research updates.
-    
+
     Events sent to the activity stream are stripped of large payloads.
     Full responses remain in backend storage (Redis/Postgres) and
     are accessible via the Sources, Paper, and Diagnostics tabs.
@@ -138,10 +166,12 @@ async def research_websocket(websocket: WebSocket, session_id: str):
                 for event in events:
                     # Strip large payloads before sending to frontend
                     activity_event = strip_event_for_activity(event)
-                    await websocket.send_json({
-                        "type": "agent_event",
-                        "data": activity_event,
-                    })
+                    await websocket.send_json(
+                        {
+                            "type": "agent_event",
+                            "data": activity_event,
+                        }
+                    )
                 last_event_idx += len(events)
 
             if state:
@@ -155,17 +185,21 @@ async def research_websocket(websocket: WebSocket, session_id: str):
                     else:
                         stripped_state[k] = v
 
-                await websocket.send_json({
-                    "type": "status",
-                    "data": stripped_state,
-                })
+                await websocket.send_json(
+                    {
+                        "type": "status",
+                        "data": stripped_state,
+                    }
+                )
 
                 # Check if completed or failed
                 if state.get("status") in ("completed", "failed"):
-                    await websocket.send_json({
-                        "type": "pipeline_complete",
-                        "data": stripped_state,
-                    })
+                    await websocket.send_json(
+                        {
+                            "type": "pipeline_complete",
+                            "data": stripped_state,
+                        }
+                    )
                     break
 
             await asyncio.sleep(1)  # Poll interval

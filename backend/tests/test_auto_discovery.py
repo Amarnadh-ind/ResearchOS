@@ -29,6 +29,7 @@ def clean_state(monkeypatch):
     monkeypatch.setenv("GROK_API_KEY", "")
 
     from config.settings import get_settings
+
     get_settings.cache_clear()
 
     LLMManager._discovered_gemma_models = []
@@ -43,6 +44,7 @@ def clean_state(monkeypatch):
 
 def make_mock_client(monkeypatch, models_list):
     """Create mock httpx.AsyncClient that returns specified model list."""
+
     async def mock_get(url, *args, **kwargs):
         req = httpx.Request("GET", url)
         if "models" in url:
@@ -93,7 +95,10 @@ async def test_discovery_filters_non_generateContent(monkeypatch):
     models = [
         {"name": "models/gemini-2.5-flash", "supportedGenerationMethods": ["generateContent"]},
         {"name": "models/gemini-embedding", "supportedGenerationMethods": ["embedContent"]},
-        {"name": "models/gemma-4-31b-it", "supportedGenerationMethods": ["generateContent", "countTokens"]},
+        {
+            "name": "models/gemma-4-31b-it",
+            "supportedGenerationMethods": ["generateContent", "countTokens"],
+        },
     ]
     make_mock_client(monkeypatch, models)
 
@@ -133,6 +138,7 @@ async def test_no_hardcoded_model_names(monkeypatch):
 @pytest.mark.asyncio
 async def test_discovery_failure_uses_defaults(monkeypatch):
     """When ListModels API fails, default models are used."""
+
     async def mock_get(url, *args, **kwargs):
         req = httpx.Request("GET", url)
         return httpx.Response(status_code=500, request=req, text="Internal error")
@@ -181,13 +187,19 @@ async def test_discovery_with_many_models(monkeypatch):
     """Large discovery response is handled correctly."""
     models = []
     for i in range(50):
-        models.append({
-            "name": f"models/experimental-model-{i}",
-            "supportedGenerationMethods": ["generateContent"],
-        })
+        models.append(
+            {
+                "name": f"models/experimental-model-{i}",
+                "supportedGenerationMethods": ["generateContent"],
+            }
+        )
     # Add some real-ish ones
-    models.append({"name": "models/gemini-2.5-flash", "supportedGenerationMethods": ["generateContent"]})
-    models.append({"name": "models/gemma-4-31b-it", "supportedGenerationMethods": ["generateContent"]})
+    models.append(
+        {"name": "models/gemini-2.5-flash", "supportedGenerationMethods": ["generateContent"]}
+    )
+    models.append(
+        {"name": "models/gemma-4-31b-it", "supportedGenerationMethods": ["generateContent"]}
+    )
 
     make_mock_client(monkeypatch, models)
     await LLMManager.discover_google_models()
@@ -206,10 +218,17 @@ async def test_discovery_with_many_models(monkeypatch):
 async def test_discovery_excludes_incompatible_models(monkeypatch):
     """Models incompatible with system instructions / JSON mode are excluded."""
     from config.models import EXCLUDED_MODEL_PATTERNS
+
     models = [
         {"name": "models/gemini-2.5-flash", "supportedGenerationMethods": ["generateContent"]},
-        {"name": "models/gemini-3.1-flash-tts-preview", "supportedGenerationMethods": ["generateContent"]},
-        {"name": "models/gemini-3.1-flash-image", "supportedGenerationMethods": ["generateContent"]},
+        {
+            "name": "models/gemini-3.1-flash-tts-preview",
+            "supportedGenerationMethods": ["generateContent"],
+        },
+        {
+            "name": "models/gemini-3.1-flash-image",
+            "supportedGenerationMethods": ["generateContent"],
+        },
         {"name": "models/gemini-embedding", "supportedGenerationMethods": ["generateContent"]},
         {"name": "models/gemma-4-31b-it", "supportedGenerationMethods": ["generateContent"]},
     ]
@@ -224,7 +243,7 @@ async def test_discovery_excludes_incompatible_models(monkeypatch):
     assert "gemini-3.1-flash-tts-preview" not in pool
     assert "gemini-3.1-flash-image" not in pool
     assert "gemini-embedding" not in pool
-    
+
     # Verify all pooled models pass exclusion check
     for model_id in pool:
         excluded = any(p in model_id.lower() for p in EXCLUDED_MODEL_PATTERNS)

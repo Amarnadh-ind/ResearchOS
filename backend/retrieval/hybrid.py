@@ -31,9 +31,7 @@ class HybridRetriever:
         bm25 = get_bm25_retriever()
 
         # Run both retrievals
-        vector_results = await vector_store.search(
-            query, limit=limit * 2, session_id=session_id
-        )
+        vector_results = await vector_store.search(query, limit=limit * 2, session_id=session_id)
         keyword_results = bm25.search(query, limit=limit * 2)
 
         # Merge with reciprocal rank fusion
@@ -100,7 +98,10 @@ class HybridRetriever:
         bm25 = get_bm25_retriever()
 
         texts = [d.get("text", "") for d in documents]
-        metas = [{"session_id": session_id, **{k: v for k, v in d.items() if k != "text"}} for d in documents]
+        metas = [
+            {"session_id": session_id, **{k: v for k, v in d.items() if k != "text"}}
+            for d in documents
+        ]
 
         # Vector index
         await vector_store.index_documents(texts, metas)

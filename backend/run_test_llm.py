@@ -1,4 +1,5 @@
 """Quick LLM connectivity test."""
+
 import asyncio
 import os
 
@@ -6,6 +7,7 @@ import httpx
 from dotenv import load_dotenv
 
 load_dotenv()
+
 
 async def test():
     key = os.getenv("OPENROUTER_API_KEY", "")
@@ -35,5 +37,6 @@ async def test():
         else:
             print(f"Error: {data}")
             print("❌ LLM PIPELINE FAILED")
+
 
 asyncio.run(test())

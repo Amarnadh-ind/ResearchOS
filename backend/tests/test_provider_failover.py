@@ -31,15 +31,28 @@ def clean_discovery():
 
 def setup_mock_client(monkeypatch, mock_post_fn):
     """Utility to setup a mock httpx.AsyncClient with mock get and post functions."""
+
     async def mock_get(url, *args, **kwargs):
         req = httpx.Request("GET", url)
         if "models" in url:
             resp_data = {
                 "models": [
-                    {"name": "models/gemma-4-31b-it", "supportedGenerationMethods": ["generateContent"]},
-                    {"name": "models/gemma-4-26b-a4b-it", "supportedGenerationMethods": ["generateContent"]},
-                    {"name": "models/gemini-2.5-flash", "supportedGenerationMethods": ["generateContent"]},
-                    {"name": "models/gemini-2.5-flash-lite", "supportedGenerationMethods": ["generateContent"]},
+                    {
+                        "name": "models/gemma-4-31b-it",
+                        "supportedGenerationMethods": ["generateContent"],
+                    },
+                    {
+                        "name": "models/gemma-4-26b-a4b-it",
+                        "supportedGenerationMethods": ["generateContent"],
+                    },
+                    {
+                        "name": "models/gemini-2.5-flash",
+                        "supportedGenerationMethods": ["generateContent"],
+                    },
+                    {
+                        "name": "models/gemini-2.5-flash-lite",
+                        "supportedGenerationMethods": ["generateContent"],
+                    },
                 ]
             }
             return httpx.Response(status_code=200, request=req, json=resp_data)
@@ -117,13 +130,7 @@ async def test_missing_keys_routing(monkeypatch, capsys):
     async def mock_post(url, *args, **kwargs):
         called_urls.append(url)
         resp_data = {
-            "candidates": [
-                {
-                    "content": {
-                        "parts": [{"text": "Gemini direct response"}]
-                    }
-                }
-            ],
+            "candidates": [{"content": {"parts": [{"text": "Gemini direct response"}]}}],
             "usageMetadata": {
                 "promptTokenCount": 10,
                 "candidatesTokenCount": 20,

@@ -11,13 +11,13 @@ Usage:
 
 import json
 import sys
-import time
 
 
 def render(html_path: str, pdf_path: str) -> None:
     import os
 
-    from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeout
+    from playwright.sync_api import TimeoutError as PlaywrightTimeout
+    from playwright.sync_api import sync_playwright
 
     with sync_playwright() as p:
         try:

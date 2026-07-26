@@ -7,19 +7,19 @@ between NORMAL mode and FAST_MODE.
 import asyncio
 
 # ── Configurable timing constants (milliseconds per LLM call type) ──
-JSON_SMALL_MS = 5000      # Planner, Critic, Novelty, Citation
-JSON_MEDIUM_MS = 8000     # Reader, ClaimExtractor
-JSON_LARGE_MS = 12000     # Writer, IEEEFormatter main
+JSON_SMALL_MS = 5000  # Planner, Critic, Novelty, Citation
+JSON_MEDIUM_MS = 8000  # Reader, ClaimExtractor
+JSON_LARGE_MS = 12000  # Writer, IEEEFormatter main
 COMPLETE_SMALL_MS = 2000  # Humanizer section, relevance rewrites, revision
 FIRECRAWL_PER_URL_MS = 6000
 FIRECRAWL_BATCH_OVERHEAD_MS = 10000
-EMBEDDING_MS = 100        # Per paragraph embedding
+EMBEDDING_MS = 100  # Per paragraph embedding
 
 
 def format_ms(ms: float) -> str:
     if ms >= 60_000:
-        return f"{ms/60_000:.1f}m {ms%60_000/1000:.0f}s"
-    return f"{ms/1000:.1f}s"
+        return f"{ms / 60_000:.1f}m {ms % 60_000 / 1000:.0f}s"
+    return f"{ms / 1000:.1f}s"
 
 
 class Phase:
@@ -80,9 +80,7 @@ class Phase:
 
     def total_ms(self, mode: str) -> int:
         return (
-            self.total_llm_ms(mode)
-            + self.total_firecrawl_ms(mode)
-            + self.total_embedding_ms(mode)
+            self.total_llm_ms(mode) + self.total_firecrawl_ms(mode) + self.total_embedding_ms(mode)
         )
 
     def summary_line(self, mode: str) -> str:
@@ -228,11 +226,11 @@ def print_results(phases: list[Phase]):
         total_all = 0
 
         label = "NORMAL MODE" if mode == "normal" else "FAST_MODE"
-        print(f"\n{'='*70}")
+        print(f"\n{'=' * 70}")
         print(f"  {label}")
-        print(f"{'='*70}")
+        print(f"{'=' * 70}")
         print(f"  {'Phase':<20} {'LLM calls':<12} {'Firecrawl':<12} {'Embed':<12} {'Total':<12}")
-        print(f"  {'-'*68}")
+        print(f"  {'-' * 68}")
 
         for phase in phases:
             llm_n = phase.total_llm_count(mode)
@@ -250,21 +248,25 @@ def print_results(phases: list[Phase]):
 
             notes = phase.notes_normal if mode == "normal" else phase.notes_fast
             note_str = f"  ({'; '.join(notes)})" if notes else ""
-            print(f"  {phase.name:<20} {llm_n:<4} {format_ms(llm_ms):<8} "
-                  f"{fc_n:<4} {format_ms(fc_ms):<8} "
-                  f"{emb_n:<4} {format_ms(emb_ms):<8} "
-                  f"{format_ms(t):<8}{note_str}")
+            print(
+                f"  {phase.name:<20} {llm_n:<4} {format_ms(llm_ms):<8} "
+                f"{fc_n:<4} {format_ms(fc_ms):<8} "
+                f"{emb_n:<4} {format_ms(emb_ms):<8} "
+                f"{format_ms(t):<8}{note_str}"
+            )
 
-        print(f"  {'-'*68}")
-        print(f"  {'TOTAL':<20} {total_llm:<4} {format_ms(sum(p.total_llm_ms(mode) for p in phases)):<8} "
-              f"{total_firecrawl:<4} {format_ms(sum(p.total_firecrawl_ms(mode) for p in phases)):<8} "
-              f"{total_embedding:<4} {format_ms(sum(p.total_embedding_ms(mode) for p in phases)):<8} "
-              f"{format_ms(total_all):<8}")
+        print(f"  {'-' * 68}")
+        print(
+            f"  {'TOTAL':<20} {total_llm:<4} {format_ms(sum(p.total_llm_ms(mode) for p in phases)):<8} "
+            f"{total_firecrawl:<4} {format_ms(sum(p.total_firecrawl_ms(mode) for p in phases)):<8} "
+            f"{total_embedding:<4} {format_ms(sum(p.total_embedding_ms(mode) for p in phases)):<8} "
+            f"{format_ms(total_all):<8}"
+        )
 
     # ── Side-by-side comparison ──
-    print(f"\n{'='*70}")
+    print(f"\n{'=' * 70}")
     print("  COMPARISON")
-    print(f"{'='*70}")
+    print(f"{'=' * 70}")
 
     normal_total = sum(p.total_ms("normal") for p in phases)
     fast_total = sum(p.total_ms("fast") for p in phases)
@@ -272,39 +274,51 @@ def print_results(phases: list[Phase]):
     pct = ((normal_total - fast_total) / normal_total) * 100
 
     print(f"  {'':<20} {'NORMAL':<20} {'FAST_MODE':<20} {'SAVINGS':<20}")
-    print(f"  {'-'*80}")
-    print(f"  {'LLM calls':<20} {sum(p.total_llm_count('normal') for p in phases):<20} "
-          f"{sum(p.total_llm_count('fast') for p in phases):<20} "
-          f"{sum(p.total_llm_count('normal') for p in phases) - sum(p.total_llm_count('fast') for p in phases):<20}")
-    print(f"  {'Firecrawl reqs':<20} {sum(p.firecrawl_reqs_normal for p in phases):<20} "
-          f"{sum(p.firecrawl_reqs_fast for p in phases):<20} "
-          f"{sum(p.firecrawl_reqs_normal for p in phases) - sum(p.firecrawl_reqs_fast for p in phases):<20}")
-    print(f"  {'Embedding calls':<20} {sum(p.embedding_calls_normal for p in phases):<20} "
-          f"{sum(p.embedding_calls_fast for p in phases):<20} "
-          f"{sum(p.embedding_calls_normal for p in phases) - sum(p.embedding_calls_fast for p in phases):<20}")
-    print(f"  {'Total latency':<20} {format_ms(normal_total):<20} {format_ms(fast_total):<20} "
-          f"{format_ms(savings):<20}")
+    print(f"  {'-' * 80}")
+    print(
+        f"  {'LLM calls':<20} {sum(p.total_llm_count('normal') for p in phases):<20} "
+        f"{sum(p.total_llm_count('fast') for p in phases):<20} "
+        f"{sum(p.total_llm_count('normal') for p in phases) - sum(p.total_llm_count('fast') for p in phases):<20}"
+    )
+    print(
+        f"  {'Firecrawl reqs':<20} {sum(p.firecrawl_reqs_normal for p in phases):<20} "
+        f"{sum(p.firecrawl_reqs_fast for p in phases):<20} "
+        f"{sum(p.firecrawl_reqs_normal for p in phases) - sum(p.firecrawl_reqs_fast for p in phases):<20}"
+    )
+    print(
+        f"  {'Embedding calls':<20} {sum(p.embedding_calls_normal for p in phases):<20} "
+        f"{sum(p.embedding_calls_fast for p in phases):<20} "
+        f"{sum(p.embedding_calls_normal for p in phases) - sum(p.embedding_calls_fast for p in phases):<20}"
+    )
+    print(
+        f"  {'Total latency':<20} {format_ms(normal_total):<20} {format_ms(fast_total):<20} "
+        f"{format_ms(savings):<20}"
+    )
     print(f"  {'Reduction':<20} {'':<20} {'':<20} {pct:.0f}%")
 
     # ── Real-world estimate with overhead ──
-    print(f"\n{'='*70}")
+    print(f"\n{'=' * 70}")
     print("  REAL-WORLD ESTIMATE (includes API overhead, cooldown, network)")
-    print(f"{'='*70}")
+    print(f"{'=' * 70}")
 
     # Normal mode: 2x overhead from retries, failover, expansion loop toll
     normal_realistic = int(normal_total * 2.2)
     fast_realistic = int(fast_total * 1.3)  # Fast mode: much less overhead
 
     print(f"  {'Mode':<20} {'Estimated':<20} {'+ API overhead':<20} {'Total':<20}")
-    print(f"  {'-'*80}")
-    print(f"  {'NORMAL':<20} {format_ms(normal_total):<20} {'+120%':<20} {format_ms(normal_realistic):<20}")
-    print(f"  {'FAST_MODE':<20} {format_ms(fast_total):<20} {'+30%':<20} {format_ms(fast_realistic):<20}")
+    print(f"  {'-' * 80}")
+    print(
+        f"  {'NORMAL':<20} {format_ms(normal_total):<20} {'+120%':<20} {format_ms(normal_realistic):<20}"
+    )
+    print(
+        f"  {'FAST_MODE':<20} {format_ms(fast_total):<20} {'+30%':<20} {format_ms(fast_realistic):<20}"
+    )
     print(f"  {'':<20} {'':<20} {'Savings':<20} {format_ms(normal_realistic - fast_realistic):<20}")
 
-    print(f"\n  {'-'*80}")
-    print(f"  NORMAL mode:   {format_ms(normal_realistic)}  ({normal_realistic/60_000:.1f} min)")
-    print(f"  FAST_MODE:     {format_ms(fast_realistic)}  ({fast_realistic/60_000:.1f} min)")
-    print(f"  {'-'*80}")
+    print(f"\n  {'-' * 80}")
+    print(f"  NORMAL mode:   {format_ms(normal_realistic)}  ({normal_realistic / 60_000:.1f} min)")
+    print(f"  FAST_MODE:     {format_ms(fast_realistic)}  ({fast_realistic / 60_000:.1f} min)")
+    print(f"  {'-' * 80}")
 
     under_10 = fast_realistic < 600_000
     check = "YES" if under_10 else "NO"

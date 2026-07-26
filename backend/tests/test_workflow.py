@@ -56,4 +56,3 @@ def test_should_continue():
     # Test terminal
     state_done = {"status": "completed", "current_agent": "done"}
     assert should_continue(state_done) == "__end__"
-

@@ -75,7 +75,9 @@ class LLMManager:
                     models_list = data.get("models", [])
 
                     model_names = [m.get("name") for m in models_list]
-                    logger.info("google_discovered_models", count=len(model_names), models=model_names)
+                    logger.info(
+                        "google_discovered_models", count=len(model_names), models=model_names
+                    )
                     print(f"google_discovered_models={model_names}", flush=True)
 
                     for m in models_list:
@@ -97,9 +99,13 @@ class LLMManager:
                 elif resp.status_code == 429:
                     logger.error("google_discovery_quota_exceeded")
                 elif resp.status_code in (400, 403):
-                    logger.error("google_discovery_failed_key", status=resp.status_code, error=resp.text)
+                    logger.error(
+                        "google_discovery_failed_key", status=resp.status_code, error=resp.text
+                    )
                 else:
-                    logger.error("google_discovery_failed_status", status=resp.status_code, error=resp.text)
+                    logger.error(
+                        "google_discovery_failed_status", status=resp.status_code, error=resp.text
+                    )
 
         except (httpx.ConnectError, httpx.ConnectTimeout) as e:
             logger.error("google_discovery_connection_error", error=str(e))
@@ -141,7 +147,11 @@ class LLMManager:
             model_lower = model_id.lower()
             excluded = any(pattern in model_lower for pattern in EXCLUDED_MODEL_PATTERNS)
             if excluded:
-                logger.info("model_excluded_from_routing", model=model_id, reason="incompatible_capabilities")
+                logger.info(
+                    "model_excluded_from_routing",
+                    model=model_id,
+                    reason="incompatible_capabilities",
+                )
                 continue
             filtered_models.append((provider, model_id))
 
@@ -205,6 +215,7 @@ class LLMManager:
     async def verify_startup_health(cls):
         """Run startup diagnostics: discover models, build pool, test health."""
         import os
+
         settings = get_settings()
 
         # ── Startup Diagnostics Banner ──
@@ -245,7 +256,7 @@ class LLMManager:
     async def test_model_health(cls, provider: str, model: str) -> bool:
         """Run a health check for a specific model."""
         settings = get_settings()
-        
+
         # Get appropriate key
         if provider == "gemini":
             key = settings.gemini_api_key
@@ -253,7 +264,7 @@ class LLMManager:
             key = settings.gemma_api_key
         else:
             key = getattr(settings, f"{provider}_api_key", "")
-            
+
         if not key:
             tracker = get_quota_tracker()
             tracker.mark_failure(model, "invalid API key", 403)
@@ -277,8 +288,8 @@ class LLMManager:
                         url,
                         json={
                             "contents": [{"parts": [{"text": "ping"}]}],
-                            "generationConfig": {"maxOutputTokens": 5}
-                        }
+                            "generationConfig": {"maxOutputTokens": 5},
+                        },
                     )
                 else:
                     headers = {
@@ -305,9 +316,9 @@ class LLMManager:
                             "model": model,
                             "messages": [{"role": "user", "content": "ping"}],
                             "max_tokens": 5,
-                        }
+                        },
                     )
-                
+
                 latency_ms = int((time.monotonic() - start_time) * 1000)
 
                 if resp.status_code == 200:
@@ -350,10 +361,18 @@ class LLMManager:
     async def test_provider_health(cls, provider: str) -> bool:
         """Test health for the first model of a given provider type."""
         if provider == "gemini":
-            m = cls._discovered_gemini_models[0] if cls._discovered_gemini_models else "gemini-2.5-flash"
+            m = (
+                cls._discovered_gemini_models[0]
+                if cls._discovered_gemini_models
+                else "gemini-2.5-flash"
+            )
             return await cls.test_model_health("gemini", m)
         elif provider == "gemma":
-            m = cls._discovered_gemma_models[0] if cls._discovered_gemma_models else "gemma-4-31b-it"
+            m = (
+                cls._discovered_gemma_models[0]
+                if cls._discovered_gemma_models
+                else "gemma-4-31b-it"
+            )
             return await cls.test_model_health("gemma", m)
         elif provider == "nemotron":
             return await cls.test_model_health("nemotron", "nemotron-3-ultra")
@@ -362,7 +381,9 @@ class LLMManager:
     def __init__(self):
         self.settings = get_settings()
 
-    def _get_quota_aware_chain(self, role: AgentRole, preferred_provider: str | None = None) -> list[tuple[str, str]]:
+    def _get_quota_aware_chain(
+        self, role: AgentRole, preferred_provider: str | None = None
+    ) -> list[tuple[str, str]]:
         """
         Returns ordered list of (provider, model) to try, filtered by quota
         availability and ordered by the role's strategy.
@@ -414,7 +435,9 @@ class LLMManager:
         return candidates
 
     # Keep backward compatibility
-    def _get_provider_chain(self, role: AgentRole, preferred_provider: str | None = None) -> list[tuple[str, str]]:
+    def _get_provider_chain(
+        self, role: AgentRole, preferred_provider: str | None = None
+    ) -> list[tuple[str, str]]:
         """Backward-compatible wrapper around _get_quota_aware_chain."""
         return self._get_quota_aware_chain(role, preferred_provider)
 
@@ -426,7 +449,7 @@ class LLMManager:
         system_prompt: str | None = None,
         temperature: float | None = None,
         max_tokens: int | None = None,
-        json_mode: bool = False
+        json_mode: bool = False,
     ) -> str:
         """Single-attempt LLM call — no provider failover (optimized for speed)."""
         candidates = self._get_quota_aware_chain(role, provider)
@@ -440,6 +463,7 @@ class LLMManager:
             if prov == "mock":
                 from config.settings import active_topic_var
                 from services.mock_llm import generate_mock_completion
+
                 topic = active_topic_var.get() or prompt
                 content = generate_mock_completion(role, system_prompt or "", prompt, topic)
                 latency_ms = 10
@@ -448,10 +472,15 @@ class LLMManager:
                 tokens_out = len(content.split()) * 4 // 3
                 print("provider_success=true", flush=True)
                 await self._log_execution_and_emit_debug(
-                    role=role, prompt=prompt, content=content,
-                    provider="mock", model="mock-fallback",
-                    tokens_in=tokens_in, tokens_out=tokens_out,
-                    cost=cost, latency_ms=latency_ms,
+                    role=role,
+                    prompt=prompt,
+                    content=content,
+                    provider="mock",
+                    model="mock-fallback",
+                    tokens_in=tokens_in,
+                    tokens_out=tokens_out,
+                    cost=cost,
+                    latency_ms=latency_ms,
                 )
                 return content
 
@@ -460,18 +489,27 @@ class LLMManager:
                 continue
 
             # Single attempt on first available provider
-            key = getattr(self.settings, f"{prov}_api_key", "") or self.settings.gemini_api_key or self.settings.gemma_api_key
+            key = (
+                getattr(self.settings, f"{prov}_api_key", "")
+                or self.settings.gemini_api_key
+                or self.settings.gemma_api_key
+            )
             start_time = time.monotonic()
 
             try:
                 content, tokens_in, tokens_out, status = await self._call_provider_api(
-                    provider=prov, model=model, key=key,
-                    prompt=prompt, system_prompt=system_prompt,
-                    temperature=temperature, max_tokens=max_tokens,
+                    provider=prov,
+                    model=model,
+                    key=key,
+                    prompt=prompt,
+                    system_prompt=system_prompt,
+                    temperature=temperature,
+                    max_tokens=max_tokens,
                     json_mode=json_mode,
                 )
                 if json_mode:
                     from services.llm import get_llm_client
+
                     get_llm_client()._parse_json_response(content, role)
 
                 latency_ms = int((time.monotonic() - start_time) * 1000)
@@ -489,8 +527,8 @@ class LLMManager:
             except Exception as e:
                 latency_ms = int((time.monotonic() - start_time) * 1000)
                 status_code = 500
-                if hasattr(e, 'response') and e.response is not None:
-                    status_code = getattr(e.response, 'status_code', 500)
+                if hasattr(e, "response") and e.response is not None:
+                    status_code = getattr(e.response, "status_code", 500)
                 elif isinstance(e, httpx.HTTPStatusError):
                     status_code = e.response.status_code
                 tracker.mark_failure(model, str(e), status_code)
@@ -502,7 +540,7 @@ class LLMManager:
                     "provider": prov,
                 }
                 print(f"provider_failed={status_code}", flush=True)
-                
+
                 # Log fallback
                 next_idx = idx + 1
                 if next_idx < len(candidates):
@@ -515,6 +553,7 @@ class LLMManager:
         # Final fallback: mock is always available
         from config.settings import active_topic_var
         from services.mock_llm import generate_mock_completion
+
         topic = active_topic_var.get() or prompt
         content = generate_mock_completion(role, system_prompt or "", prompt, topic)
         print("provider_success=true", flush=True)
@@ -533,6 +572,7 @@ class LLMManager:
     ) -> tuple[str, int, int, int]:
         """Performs raw network requests to LLM provider APIs."""
         from config.settings import get_settings
+
         _settings = get_settings()
         _provider_timeout = _settings.fast_mode_provider_timeout if _settings.fast_mode else 20.0
         async with httpx.AsyncClient(timeout=_provider_timeout) as client:
@@ -582,7 +622,7 @@ class LLMManager:
                         "Authorization": f"Bearer {key}",
                         "Content-Type": "application/json",
                     }
-                
+
                 if provider == "openai":
                     url = "https://api.openai.com/v1/chat/completions"
                 elif provider == "openrouter":
@@ -605,10 +645,10 @@ class LLMManager:
                 if system_prompt:
                     payload["messages"].append({"role": "system", "content": system_prompt})
                 payload["messages"].append({"role": "user", "content": prompt})
-                
+
                 if json_mode:
                     payload["response_format"] = {"type": "json_object"}
-                    
+
                 resp = await client.post(url, headers=headers, json=payload)
                 if resp.status_code != 200:
                     raise httpx.HTTPStatusError(
@@ -618,11 +658,11 @@ class LLMManager:
                     )
                 data = resp.json()
                 content = data["choices"][0]["message"]["content"]
-                
+
                 usage = data.get("usage", {})
                 tokens_in = usage.get("prompt_tokens", len(prompt.split()) * 4 // 3)
                 tokens_out = usage.get("completion_tokens", len(content.split()) * 4 // 3)
-                
+
                 return content, tokens_in, tokens_out, resp.status_code
 
         raise ValueError(f"Unknown LLM provider: {provider}")
@@ -654,6 +694,7 @@ class LLMManager:
         latency_ms: int,
     ):
         from config.settings import active_session_id_var, active_topic_var
+
         session_id = active_session_id_var.get()
         topic = active_topic_var.get() or "Autonomous Multi-Agent Systems"
 
@@ -661,35 +702,43 @@ class LLMManager:
             # Emit WebSocket debug events
             try:
                 from memory.session import get_session_memory
+
                 session_mem = get_session_memory()
-                await session_mem.push_event(session_id, {
-                    "agent": role.value,
-                    "type": "debug",
-                    "data": {
-                        "topic": topic,
-                        "prompt": prompt,
-                        "response": content,
-                        "provider": provider,
-                        "model": f"{provider}:{model}",
-                        "tokens_in": tokens_in,
-                        "tokens_out": tokens_out,
-                        "token_count": tokens_in + tokens_out,
-                        "response_length": len(content),
-                        "cost": cost,
-                        "latency": latency_ms,
-                    }
-                })
+                await session_mem.push_event(
+                    session_id,
+                    {
+                        "agent": role.value,
+                        "type": "debug",
+                        "data": {
+                            "topic": topic,
+                            "prompt": prompt,
+                            "response": content,
+                            "provider": provider,
+                            "model": f"{provider}:{model}",
+                            "tokens_in": tokens_in,
+                            "tokens_out": tokens_out,
+                            "token_count": tokens_in + tokens_out,
+                            "response_length": len(content),
+                            "cost": cost,
+                            "latency": latency_ms,
+                        },
+                    },
+                )
                 # Cache raw output
-                await session_mem.set_state(session_id, {
-                    "raw_llm_output": content,
-                    "writer_prompt": prompt if role == AgentRole.WRITER else None,
-                })
+                await session_mem.set_state(
+                    session_id,
+                    {
+                        "raw_llm_output": content,
+                        "writer_prompt": prompt if role == AgentRole.WRITER else None,
+                    },
+                )
             except Exception as e:
                 logger.warning("failed_pushing_debug_event", error=str(e))
 
             # Log execution details to PostgreSQL
             try:
                 from memory.metadata import get_metadata_store
+
                 metadata = get_metadata_store()
                 await metadata.log_agent_execution(
                     session_id=session_id,

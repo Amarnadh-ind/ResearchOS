@@ -51,6 +51,7 @@ class HumanizerAgent(BaseAgent):
 
         if sections_to_humanize:
             import asyncio
+
             tasks = [self._humanize_section_text(text) for _, text in sections_to_humanize]
             results = await asyncio.gather(*tasks)
 

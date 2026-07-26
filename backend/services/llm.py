@@ -30,7 +30,7 @@ class LLMClient:
         json_mode: bool = False,
     ) -> str:
         """Route completion to LLMManager with quota-aware multi-model failover.
-        
+
         The LLMManager handles:
         - Dynamic model discovery
         - Quota-aware routing with cooldowns
@@ -39,10 +39,10 @@ class LLMClient:
         """
         from services.llm_manager import get_llm_manager
         from services.quota_tracker import get_quota_tracker
-        
+
         mgr = get_llm_manager()
         tracker = get_quota_tracker()
-        
+
         # Load defaults from role configuration if not overridden
         config = get_model_config(role)
         temp = temperature if temperature is not None else config.temperature
@@ -52,7 +52,7 @@ class LLMClient:
         telemetry = tracker.get_telemetry()
         online_count = telemetry["summary"]["online"]
         cooldown_count = telemetry["summary"]["cooldown"]
-        
+
         logger.info(
             "llm_call_start",
             role=role.value,
@@ -89,7 +89,7 @@ class LLMClient:
             max_tokens=max_tokens,
             json_mode=True,
         )
-        
+
         # ── Diagnostic logging ──
         logger.info(
             "complete_json_raw_response",
@@ -98,7 +98,7 @@ class LLMClient:
             first_500=raw[:500],
             last_500=raw[-500:] if len(raw) > 500 else raw,
         )
-        
+
         # ── Attempt 1: Extract and parse (max_attempts=1) ──
         try:
             return self._parse_json_response(raw, role)
@@ -110,7 +110,7 @@ class LLMClient:
     @staticmethod
     def _extract_json(text: str) -> str:
         """Extract JSON from LLM responses that may include markdown, prose, or code fences.
-        
+
         Handles:
         - ```json ... ``` wrappers
         - ``` ... ``` wrappers
@@ -120,26 +120,28 @@ class LLMClient:
         - Extra trailing closing delimiters
         """
         import re
-        
+
         text = text.strip()
-        
+
         # 1. Remove markdown code fences
-        fence_pattern = re.compile(r'```(?:json)?\s*\n?(.*?)\n?\s*```', re.DOTALL)
+        fence_pattern = re.compile(r"```(?:json)?\s*\n?(.*?)\n?\s*```", re.DOTALL)
         fence_match = fence_pattern.search(text)
         if fence_match:
             text = fence_match.group(1).strip()
-        
+
         # 2. Try to find the first { or [ and extract balanced content from there
-        first_brace = text.find('{')
-        first_bracket = text.find('[')
-        
+        first_brace = text.find("{")
+        first_bracket = text.find("[")
+
         if first_brace == -1 and first_bracket == -1:
             return text  # Let json.loads raise the error
-        
-        start = first_brace if first_bracket == -1 else (
-            first_bracket if first_brace == -1 else min(first_brace, first_bracket)
+
+        start = (
+            first_brace
+            if first_bracket == -1
+            else (first_bracket if first_brace == -1 else min(first_brace, first_bracket))
         )
-        
+
         # 3. Use stack-based balancing to find the exact end of FIRST complete JSON
         candidate = text[start:]
         return LLMClient._extract_first_complete_json(candidate)
@@ -147,27 +149,27 @@ class LLMClient:
     @staticmethod
     def _extract_first_complete_json(text: str) -> str:
         """Extract the first complete JSON object/array from potentially concatenated JSON.
-        
+
         Handles cases where LLM returns multiple JSON objects concatenated like:
         {"a":1}{"b":2} or {"a":1} {"b":2}
         """
         if not text:
             return text
-            
+
         text = text.strip()
-        if not (text.startswith('{') or text.startswith('[')):
+        if not (text.startswith("{") or text.startswith("[")):
             return text
-            
+
         # Use a stack-based approach to find the first complete JSON structure
         in_string = False
         escaped = False
         stack = []
-        
+
         for i, ch in enumerate(text):
             if escaped:
                 escaped = False
                 continue
-            if ch == '\\' and in_string:
+            if ch == "\\" and in_string:
                 escaped = True
                 continue
             if ch == '"':
@@ -175,28 +177,28 @@ class LLMClient:
                 continue
             if in_string:
                 continue
-                
+
             # Outside strings: track structure
-            if ch == '{' or ch == '[':
+            if ch == "{" or ch == "[":
                 stack.append(ch)
-            elif ch == '}':
-                if stack and stack[-1] == '{':
+            elif ch == "}":
+                if stack and stack[-1] == "{":
                     stack.pop()
                     if not stack:  # First complete object found
-                        return text[:i+1]
-            elif ch == ']':
-                if stack and stack[-1] == '[':
+                        return text[: i + 1]
+            elif ch == "]":
+                if stack and stack[-1] == "[":
                     stack.pop()
                     if not stack:  # First complete array found
-                        return text[:i+1]
-        
+                        return text[: i + 1]
+
         # If we couldn't find a complete structure, return original and let parser handle it
         return text
 
     @staticmethod
     def _repair_json(text: str) -> str:
         """Attempt to repair common JSON issues from LLM responses.
-        
+
         Fixes:
         - Trailing commas before } or ]
         - Unterminated strings (adds closing quote)
@@ -204,39 +206,39 @@ class LLMClient:
         - Single quotes instead of double quotes
         - Control characters in strings
         - Extraneous trailing closing delimiters
-        
+
         Uses a stack-based approach to track all open structures and close them.
         """
         import re
-        
+
         text = text.strip()
-        
+
         # If no JSON structure, return as-is
-        if not text.startswith('{') and not text.startswith('['):
+        if not text.startswith("{") and not text.startswith("["):
             return text
-        
+
         # Remove trailing commas before } or ]
-        text = re.sub(r',\s*([}\]])', r'\1', text)
-        
+        text = re.sub(r",\s*([}\]])", r"\1", text)
+
         # Replace single-quoted keys/values with double quotes
         if '"' not in text and "'" in text:
             text = text.replace("'", '"')
-        
+
         # Remove control characters except \n, \r, \t
-        text = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f]', '', text)
-        
+        text = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f]", "", text)
+
         # ── Stack-based structure tracking with extraneous closer removal ──
         in_string = False
         escaped = False
         stack = []
         result_chars = []
-        
+
         for ch in text:
             if escaped:
                 escaped = False
                 result_chars.append(ch)
                 continue
-            if ch == '\\' and in_string:
+            if ch == "\\" and in_string:
                 escaped = True
                 result_chars.append(ch)
                 continue
@@ -247,74 +249,76 @@ class LLMClient:
             if in_string:
                 result_chars.append(ch)
                 continue
-            if ch == '{':
-                stack.append('{')
+            if ch == "{":
+                stack.append("{")
                 result_chars.append(ch)
-            elif ch == '[':
-                stack.append('[')
+            elif ch == "[":
+                stack.append("[")
                 result_chars.append(ch)
-            elif ch == '}':
-                if stack and stack[-1] == '{':
+            elif ch == "}":
+                if stack and stack[-1] == "{":
                     stack.pop()
                     result_chars.append(ch)
                 # else: extraneous closer — skip it
-            elif ch == ']':
-                if stack and stack[-1] == '[':
+            elif ch == "]":
+                if stack and stack[-1] == "[":
                     stack.pop()
                     result_chars.append(ch)
                 # else: extraneous closer — skip it
             else:
                 result_chars.append(ch)
-        
-        text = ''.join(result_chars).rstrip()
-        
+
+        text = "".join(result_chars).rstrip()
+
         # If everything is balanced, return as-is
         if not in_string and not stack:
             return text
-        
+
         # ── Repair truncated output ──
         if in_string:
-            if text.endswith('\\'):
+            if text.endswith("\\"):
                 text = text[:-1]
             text += '"'
-        
-        text = re.sub(r':\s*$', ': null', text)
-        text = re.sub(r',\s*$', '', text)
-        
+
+        text = re.sub(r":\s*$", ": null", text)
+        text = re.sub(r",\s*$", "", text)
+
         for delimiter in reversed(stack):
-            text = re.sub(r',\s*$', '', text)
-            if delimiter == '{':
-                text += '}'
-            elif delimiter == '[':
-                text += ']'
-        
+            text = re.sub(r",\s*$", "", text)
+            if delimiter == "{":
+                text += "}"
+            elif delimiter == "[":
+                text += "]"
+
         return text
 
     def _parse_json_response(self, raw: str, role: AgentRole) -> dict:
         """Extract, repair, and parse JSON from an LLM response."""
+
         def _try_parse(text: str) -> dict | None:
             try:
                 return json.loads(text)
             except json.JSONDecodeError:
                 return None
-        
+
         # Step 1: Extract JSON from wrappers
         extracted = self._extract_json(raw)
         parsed = _try_parse(extracted)
         if parsed is not None:
             return parsed
-        
+
         # Step 2: Try with repair
         repaired = self._repair_json(extracted)
         parsed = _try_parse(repaired)
         if parsed is not None:
             return parsed
-        
+
         # Step 3: If extracted text has no JSON delimiters, search raw text
         # for any {…} or […] pattern using regex (catches JSON in markdown)
         import re
-        if '{' not in extracted and '[' not in extracted:
-            for pattern in [r'(\{.*\})', r'(\[.*\])']:
+
+        if "{" not in extracted and "[" not in extracted:
+            for pattern in [r"(\{.*\})", r"(\[.*\])"]:
                 match = re.search(pattern, raw, re.DOTALL)
                 if match:
                     candidate = match.group(1)
@@ -325,7 +329,7 @@ class LLMClient:
                     parsed = _try_parse(repaired)
                     if parsed is not None:
                         return parsed
-        
+
         raise ValueError(
             f"JSON parse error for {role.value}: No valid JSON found. "
             f"Response length: {len(raw)}, "
@@ -337,10 +341,10 @@ class LLMClient:
         """Save a failed LLM response to disk for debugging."""
         import os
         import traceback
-        
+
         filename = f"{role.value}_failed{suffix}.json"
         filepath = os.path.join(os.path.dirname(__file__), "..", filename)
-        
+
         try:
             debug_data = {
                 "role": role.value,

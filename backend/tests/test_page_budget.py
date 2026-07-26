@@ -18,6 +18,7 @@ def test_compute_page_budget_defaults():
     assert "section_budgets" in budget
     assert len(budget["section_budgets"]) == 10
 
+
 def test_compute_page_budget_custom_layout():
     # 1 Column is also 650 words/page
     budget = compute_page_budget(6, layout="1 Column")
@@ -27,6 +28,7 @@ def test_compute_page_budget_custom_layout():
     assert budget["total_word_target"] == 3900
     assert budget["body_word_target"] == 3300
 
+
 def test_compute_page_budget_with_expected_sections():
     sections = [
         "I. Introduction",
@@ -35,7 +37,7 @@ def test_compute_page_budget_with_expected_sections():
         "IV. System Architecture",
         "V. Simulation Setup",
         "VI. Conclusion",
-        "VII. References"  # should be skipped
+        "VII. References",  # should be skipped
     ]
     budget = compute_page_budget(10, expected_sections=sections)
     # Expected sections (excluding References) is 6 sections.
@@ -43,6 +45,7 @@ def test_compute_page_budget_with_expected_sections():
     # Check that references are skipped
     assert "VII. References" not in budget["section_budgets"]
     assert "I. Introduction" in budget["section_budgets"]
+
 
 def test_count_words():
     text = "This is a simple paragraph with 7 words."
@@ -65,26 +68,27 @@ def test_count_words():
     # $$...$$ becomes " EQUATION ", so: "Let EQUATION be the sum." (5 words)
     assert count_words(eq_text) == 5
 
+
 def test_count_paper_words():
     paper = {
-        "abstract": "This is the abstract text.", # 5 words
+        "abstract": "This is the abstract text.",  # 5 words
         "sections": [
             {
                 "heading": "I. Introduction",
-                "content": "This is the introduction section content.", # 6 words
+                "content": "This is the introduction section content.",  # 6 words
                 "subsections": [
                     {
                         "heading": "A. Background",
-                        "content": "This is background info." # 4 words
+                        "content": "This is background info.",  # 4 words
                     }
-                ]
+                ],
             },
             {
                 "heading": "II. Methodology",
-                "content": "This is the methodology section." # 5 words
-            }
+                "content": "This is the methodology section.",  # 5 words
+            },
         ],
-        "conclusion": "This is the final conclusion of the paper." # 8 words
+        "conclusion": "This is the final conclusion of the paper.",  # 8 words
     }
     stats = count_paper_words(paper)
     assert stats["abstract_words"] == 5

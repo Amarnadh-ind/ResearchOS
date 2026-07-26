@@ -36,6 +36,7 @@ def test_detect_paper_topic():
     paper7 = {"title": "Some generic title"}
     assert _detect_paper_topic(paper7) == "generic"
 
+
 def test_classify_section():
     assert _classify_section("I. Introduction") == "introduction"
     assert _classify_section("II. RELATED WORK") == "literature"
@@ -45,12 +46,14 @@ def test_classify_section():
     assert _classify_section("IX. Conclusion") == "discussion"
     assert _classify_section("X. Future Scope") == "future_work"
 
+
 def test_heading_matches():
     assert _heading_matches("I. INTRODUCTION", "I. INTRODUCTION")
     assert _heading_matches("I. INTRODUCTION", "INTRODUCTION")
     assert _heading_matches("II. LITERATURE REVIEW", "LITERATURE REVIEW / RELATED WORK")
     assert _heading_matches("LITERATURE REVIEW / RELATED WORK", "II. LITERATURE REVIEW")
     assert not _heading_matches("I. INTRODUCTION", "II. LITERATURE REVIEW")
+
 
 @pytest.mark.asyncio
 async def test_expand_paper_content_mock(monkeypatch):
@@ -59,8 +62,9 @@ async def test_expand_paper_content_mock(monkeypatch):
     monkeypatch.setenv("GEMINI_API_KEY", "")
     monkeypatch.setenv("GROK_API_KEY", "")
     monkeypatch.setenv("OPENAI_API_KEY", "")
-    
+
     from config.settings import get_settings
+
     get_settings.cache_clear()
 
     # Setup paper data that is short
@@ -71,32 +75,33 @@ async def test_expand_paper_content_mock(monkeypatch):
             {
                 "heading": "I. INTRODUCTION",
                 "content": "This is introductory content.",
-                "subsections": []
+                "subsections": [],
             },
             {
                 "heading": "II. LITERATURE REVIEW",
                 "content": "This is literature review content.",
-                "subsections": []
-            }
+                "subsections": [],
+            },
         ],
-        "conclusion": "Conclusion."
+        "conclusion": "Conclusion.",
     }
 
     # Set MOCK_LLM environment variable to force mock expansion
     monkeypatch.setenv("MOCK_LLM", "True")
-    
+
     # Target word count is much higher than current
     target_words = 1500
     expanded = await expand_paper_content(paper, target_words, topic="mcp")
-    
+
     # Check that content has expanded (appended pre-built blocks)
     intro_content = expanded["sections"][0]["content"]
     lit_content = expanded["sections"][1]["content"]
-    
+
     assert "proliferation of large language models" in intro_content
     assert "evolution of LLM-to-tool integration" in lit_content
-    
+
     # Word count should be significantly higher
     from services.page_budget import count_paper_words
+
     stats = count_paper_words(expanded)
     assert stats["body_words"] > 500

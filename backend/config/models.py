@@ -4,6 +4,7 @@ Maps agent roles to routing strategies for intelligent quota-aware model selecti
 """
 
 from dataclasses import dataclass
+
 try:
     from enum import StrEnum
 except ImportError:
@@ -31,7 +32,8 @@ class AgentRole(StrEnum):
 
 class ModelStrategy(StrEnum):
     """Routing strategy for model selection."""
-    FAST = "fast"       # Lowest latency healthy model
+
+    FAST = "fast"  # Lowest latency healthy model
     QUALITY = "quality"  # Highest priority (best) healthy model
 
 
@@ -156,29 +158,29 @@ ROLE_STRATEGY_MAP: dict[AgentRole, ModelStrategy] = {
 # Pattern matching is case-insensitive substring matching.
 # Lower priority number = tried first.
 MODEL_PRIORITY_PATTERNS: list[tuple[str, str | None, int]] = [
-    ("manus", None, 5),                          # Manus (top priority)
-    ("gemini-2.5-flash", "lite", 10),           # Gemini 2.5 Flash (not lite)
-    ("gemini-2.5-flash-lite", None, 20),         # Gemini 2.5 Flash Lite
-    ("nemotron-3-ultra", None, 25),              # Nemotron 3 Ultra (fallback when Gemini exhausted)
-    ("gemma-4", "26b", 30),                      # Gemma 4 31B (not 26b)
-    ("gemma-4", "31b", 40),                      # Gemma 4 26B (not 31b)
-    ("gemini-3.1-flash-lite", None, 45),         # Gemini 3.1 Flash Lite (fast, reliable)
-    ("gemini-3.1-flash", "lite", 48),            # Gemini 3.1 Flash
-    ("gemini-3", "lite", 50),                    # Gemini 3 Flash
-    ("gemini-3", None, 55),                      # Gemini 3.x (lite variants)
-    ("gemini-2.0-flash", None, 60),              # Gemini 2.0 Flash
-    ("gemini-1.5-flash", None, 70),              # Gemini 1.5 Flash
-    ("gemini-1.5-pro", None, 80),                # Gemini 1.5 Pro
+    ("manus", None, 5),  # Manus (top priority)
+    ("gemini-2.5-flash", "lite", 10),  # Gemini 2.5 Flash (not lite)
+    ("gemini-2.5-flash-lite", None, 20),  # Gemini 2.5 Flash Lite
+    ("nemotron-3-ultra", None, 25),  # Nemotron 3 Ultra (fallback when Gemini exhausted)
+    ("gemma-4", "26b", 30),  # Gemma 4 31B (not 26b)
+    ("gemma-4", "31b", 40),  # Gemma 4 26B (not 31b)
+    ("gemini-3.1-flash-lite", None, 45),  # Gemini 3.1 Flash Lite (fast, reliable)
+    ("gemini-3.1-flash", "lite", 48),  # Gemini 3.1 Flash
+    ("gemini-3", "lite", 50),  # Gemini 3 Flash
+    ("gemini-3", None, 55),  # Gemini 3.x (lite variants)
+    ("gemini-2.0-flash", None, 60),  # Gemini 2.0 Flash
+    ("gemini-1.5-flash", None, 70),  # Gemini 1.5 Flash
+    ("gemini-1.5-pro", None, 80),  # Gemini 1.5 Pro
 ]
 
 # Models to EXCLUDE from routing pool (incompatible with system instructions, JSON mode, etc.)
 EXCLUDED_MODEL_PATTERNS: list[str] = [
-    "tts",                    # Text-to-speech models don't support system instructions
-    "image",                  # Image generation models
-    "audio",                  # Audio models
-    "embedding",              # Embedding-only models
-    "vision",                 # Vision-only models (if not multimodal)
-    "realtime",               # Realtime models (different API)
+    "tts",  # Text-to-speech models don't support system instructions
+    "image",  # Image generation models
+    "audio",  # Audio models
+    "embedding",  # Embedding-only models
+    "vision",  # Vision-only models (if not multimodal)
+    "realtime",  # Realtime models (different API)
 ]
 
 # Default priority for any discovered model not matching patterns above

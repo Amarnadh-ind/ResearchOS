@@ -65,6 +65,7 @@ class ReaderAgent(BaseAgent):
         description = page.get("description") or ""
 
         from config.settings import get_settings
+
         content = self._segment_content(content)
         max_chars = 4000 if get_settings().fast_mode else 8000
         if len(content) > max_chars:
@@ -117,12 +118,14 @@ Extract and structure the key information as JSON."""
         current_lines = []
 
         for line in lines:
-            heading_match = re.match(r'^(#{1,6})\s+(.+)$', line.strip())
+            heading_match = re.match(r"^(#{1,6})\s+(.+)$", line.strip())
             if heading_match:
                 if current_lines:
                     body = " ".join(l.strip() for l in current_lines if l.strip())
                     if body:
-                        segments.append(f"**{current_heading}**: {body}" if current_heading else body)
+                        segments.append(
+                            f"**{current_heading}**: {body}" if current_heading else body
+                        )
                 current_heading = heading_match.group(2).strip()
                 current_lines = []
             else:

@@ -11,12 +11,10 @@ import asyncio
 import os
 import sys
 import time
-import json
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from services.pdf_generator import PDFGenerator, _load_katex, KATEX_CSS_INLINE, KATEX_JS_INLINE, KATEX_AUTO_INLINE
-
+from services.pdf_generator import PDFGenerator, _load_katex
 
 SAMPLE_PAPERS = [
     {
@@ -265,7 +263,7 @@ async def run_benchmark():
 
     failures = [r for r in results if not r["success"]]
     if failures:
-        print(f"\n  REMAINING FAILURES:")
+        print("\n  REMAINING FAILURES:")
         for f in failures:
             print(f"    - Paper {f['index']}: {f['title']}")
             print(f"      Error: {f['error']}")
@@ -281,7 +279,7 @@ async def run_benchmark():
         print("  - Improve error handling and fallback chain")
     if avg_time > 30:
         print("  - Reduce PDF render timeout or optimize HTML template")
-    print(f"\n  Target: >95% success rate")
+    print("\n  Target: >95% success rate")
     print(f"  Result: {success_rate:.1f}% {'MET' if success_rate >= 95 else 'NOT MET'}")
 
     return results, success_rate, katex_ok
@@ -296,7 +294,7 @@ async def main():
 
     results, success_rate, katex_ok = await run_benchmark()
 
-    print(f"\n  Done.")
+    print("\n  Done.")
 
 
 if __name__ == "__main__":

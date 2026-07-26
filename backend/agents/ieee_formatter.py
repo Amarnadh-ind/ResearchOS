@@ -65,6 +65,7 @@ class IEEEFormatterAgent(BaseAgent):
 
     async def execute(self, input_data: dict, context: dict) -> dict:
         from config.settings import get_settings
+
         settings = get_settings()
         is_fast = settings.fast_mode and settings.fast_mode_skip_ieee_llm
 
@@ -77,27 +78,48 @@ class IEEEFormatterAgent(BaseAgent):
 
         if is_fast:
             ieee_sections = []
-            roman_numerals = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"]
+            roman_numerals = [
+                "I",
+                "II",
+                "III",
+                "IV",
+                "V",
+                "VI",
+                "VII",
+                "VIII",
+                "IX",
+                "X",
+                "XI",
+                "XII",
+            ]
             for idx, section in enumerate(sections):
                 heading = section.get("heading", "")
                 if not any(heading.upper().startswith(f"{r}.") for r in roman_numerals):
                     r_num = roman_numerals[idx] if idx < len(roman_numerals) else str(idx + 1)
                     heading = f"{r_num}. {heading.upper()}"
-                ieee_sections.append({
-                    "heading": heading,
-                    "content": section.get("content", ""),
-                    "subsections": section.get("subsections", []),
-                })
+                ieee_sections.append(
+                    {
+                        "heading": heading,
+                        "content": section.get("content", ""),
+                        "subsections": section.get("subsections", []),
+                    }
+                )
             if conclusion:
-                r_num = roman_numerals[len(ieee_sections)] if len(ieee_sections) < len(roman_numerals) else str(len(ieee_sections) + 1)
-                ieee_sections.append({
-                    "heading": f"{r_num}. CONCLUSION",
-                    "content": conclusion,
-                    "subsections": [],
-                })
+                r_num = (
+                    roman_numerals[len(ieee_sections)]
+                    if len(ieee_sections) < len(roman_numerals)
+                    else str(len(ieee_sections) + 1)
+                )
+                ieee_sections.append(
+                    {
+                        "heading": f"{r_num}. CONCLUSION",
+                        "content": conclusion,
+                        "subsections": [],
+                    }
+                )
             refs = []
             for i, c in enumerate(citations[:30]):
-                refs.append(c.get("ieee_format", c.get("title", f"[{i+1}] {c.get('url', '')}")))
+                refs.append(c.get("ieee_format", c.get("title", f"[{i + 1}] {c.get('url', '')}")))
             paper_dict = {
                 "title": title,
                 "authors": ["ResearchOS Autonomous System"],
@@ -120,8 +142,7 @@ class IEEEFormatterAgent(BaseAgent):
                 sections_text += f"\n### {sub.get('heading', '')}\n{sub.get('content', '')}\n"
 
         references_text = "\n".join(
-            c.get("ieee_format", c.get("title", ""))
-            for c in citations[:30]
+            c.get("ieee_format", c.get("title", "")) for c in citations[:30]
         )
 
         user_prompt = f"""Convert this paper draft to IEEE format.
@@ -178,24 +199,45 @@ Format as a proper IEEE paper with all formatting conventions. PRESERVE ALL CONT
                 target=target_word_count,
             )
             ieee_sections = []
-            roman_numerals = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"]
+            roman_numerals = [
+                "I",
+                "II",
+                "III",
+                "IV",
+                "V",
+                "VI",
+                "VII",
+                "VIII",
+                "IX",
+                "X",
+                "XI",
+                "XII",
+            ]
             for idx, section in enumerate(sections):
                 heading = section.get("heading", "")
                 if not any(heading.upper().startswith(f"{r}.") for r in roman_numerals):
                     r_num = roman_numerals[idx] if idx < len(roman_numerals) else str(idx + 1)
                     heading = f"{r_num}. {heading.upper()}"
-                ieee_sections.append({
-                    "heading": heading,
-                    "content": section.get("content", ""),
-                    "subsections": section.get("subsections", []),
-                })
+                ieee_sections.append(
+                    {
+                        "heading": heading,
+                        "content": section.get("content", ""),
+                        "subsections": section.get("subsections", []),
+                    }
+                )
             if conclusion:
-                r_num = roman_numerals[len(ieee_sections)] if len(ieee_sections) < len(roman_numerals) else str(len(ieee_sections) + 1)
-                ieee_sections.append({
-                    "heading": f"{r_num}. CONCLUSION",
-                    "content": conclusion,
-                    "subsections": [],
-                })
+                r_num = (
+                    roman_numerals[len(ieee_sections)]
+                    if len(ieee_sections) < len(roman_numerals)
+                    else str(len(ieee_sections) + 1)
+                )
+                ieee_sections.append(
+                    {
+                        "heading": f"{r_num}. CONCLUSION",
+                        "content": conclusion,
+                        "subsections": [],
+                    }
+                )
             paper_dict["sections"] = ieee_sections
 
         paper_dict["content_markdown"] = self._build_markdown(paper_dict)

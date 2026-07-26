@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 
 class PaperSection(BaseModel):
     """A section of the research paper."""
+
     heading: str
     content: str
     subsections: list["PaperSection"] = Field(default_factory=list)
@@ -18,6 +19,7 @@ class PaperSection(BaseModel):
 
 class PaperDraft(BaseModel):
     """A complete research paper draft."""
+
     id: UUID | None = None
     session_id: UUID | None = None
     title: str

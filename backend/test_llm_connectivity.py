@@ -163,7 +163,9 @@ async def test_gemini(key: str, model: str, timeout: float = 15.0) -> dict:
         result["status"] = "skipped_no_key"
         return result
 
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={key}"
+    url = (
+        f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={key}"
+    )
     payload = {
         "contents": [{"parts": [{"text": "Hello"}]}],
         "generationConfig": {"maxOutputTokens": 30, "temperature": 0.1},
@@ -386,20 +388,19 @@ def _print_result(r: dict):
 
 if __name__ == "__main__":
     report = asyncio.run(run_all_tests())
-    
+
     # Save report to JSON for programmatic use
     report_path = os.path.join(os.path.dirname(__file__), "llm_connectivity_report.json")
     serializable = {
         "summary": report["summary"],
         "results": [
-            {k: v for k, v in r.items() if k != "exception_trace"}
-            for r in report["results"]
+            {k: v for k, v in r.items() if k != "exception_trace"} for r in report["results"]
         ],
     }
     with open(report_path, "w") as f:
         json.dump(serializable, f, indent=2)
     print(f"  Report saved to: {report_path}")
-    
+
     # Exit with error code if no providers succeeded
     if not report["summary"]["succeeded"]:
         sys.exit(1)

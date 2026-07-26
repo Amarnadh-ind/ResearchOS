@@ -66,12 +66,13 @@ class WriterAgent(BaseAgent):
     name = "writer"
 
     async def execute(self, input_data: dict, context: dict) -> dict:
-        from config.models import AgentRole as _AR, ModelConfig
-        from services.llm import get_llm_client
-        from config.settings import get_settings
+        from config.models import AgentRole as _AR
+        from config.models import ModelConfig
+
         _settings = get_settings()
         if _settings.fast_mode:
             import config.models as _mods
+
             _mods.MODEL_ROUTING[_AR.WRITER] = ModelConfig(
                 model_id="auto",
                 max_tokens=_settings.fast_mode_writer_max_tokens,
@@ -96,7 +97,7 @@ class WriterAgent(BaseAgent):
         # Build context for writing
         claims_with_citations = []
         for i, claim in enumerate(verified_claims[:30]):
-            citation_key = f"[{i+1}]"
+            citation_key = f"[{i + 1}]"
             claims_with_citations.append(f"{claim} {citation_key}")
 
         novelty_text = ""
@@ -106,7 +107,7 @@ class WriterAgent(BaseAgent):
             novelty_text = f"\nNovel Contributions:\n{novel_contribs}\n\nResearch Gaps:\n{gaps}"
 
         citations_text = "\n".join(
-            f"{c.get('key', f'[{i+1}]')}: {c.get('ieee_format', c.get('title', ''))}"
+            f"{c.get('key', f'[{i + 1}]')}: {c.get('ieee_format', c.get('title', ''))}"
             for i, c in enumerate(citations[:30])
         )
 
@@ -117,7 +118,7 @@ class WriterAgent(BaseAgent):
 
         user_prompt = f"""Research Question: {research_question}
 Topic: {topic}
-Keywords: {', '.join(keywords) if keywords else ''}
+Keywords: {", ".join(keywords) if keywords else ""}
 
 Verified Claims (with citation keys):
 {chr(10).join(claims_with_citations)}
@@ -127,7 +128,7 @@ Verified Claims (with citation keys):
 Available Citations:
 {citations_text}
 
-Expected Sections: {', '.join(expected_sections) if expected_sections else 'Standard academic structure'}
+Expected Sections: {", ".join(expected_sections) if expected_sections else "Standard academic structure"}
 
 {budget_instructions}
 

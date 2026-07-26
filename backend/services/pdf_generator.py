@@ -23,12 +23,14 @@ _HAS_FPDF2: bool = False
 
 try:
     from fpdf import FPDF  # noqa: F401
+
     _HAS_FPDF2 = True
 except ImportError:
     pass
 
 # ── Locally bundled KaTeX (offline rendering) ────────────────────────
 _KATEX_DIR = os.path.join(os.path.dirname(__file__), "..", "static", "katex")
+
 
 def _load_katex() -> tuple[str, str, str]:
     css_path = os.path.join(_KATEX_DIR, "katex.min.css")
@@ -58,6 +60,7 @@ def _load_katex() -> tuple[str, str, str]:
         js = ""
         auto = ""
     return css, js, auto
+
 
 KATEX_CSS_INLINE, KATEX_JS_INLINE, KATEX_AUTO_INLINE = _load_katex()
 _KATEX_OK = bool(KATEX_JS_INLINE and KATEX_AUTO_INLINE and KATEX_CSS_INLINE)
@@ -441,14 +444,14 @@ def parse_markdown_to_html(md_text: str) -> str:
 
     # ── JSON Leak Sanitization ──
     # Strip leftover JSON code fences and artifacts from LLM output
-    md_text = re.sub(r'```json\s*', '', md_text)
-    md_text = re.sub(r'```\s*', '', md_text)
+    md_text = re.sub(r"```json\s*", "", md_text)
+    md_text = re.sub(r"```\s*", "", md_text)
     # Remove lines that are just opening/closing braces (JSON object boundaries)
-    md_text = re.sub(r'^\s*[{}]\s*$', '', md_text, flags=re.MULTILINE)
+    md_text = re.sub(r"^\s*[{}]\s*$", "", md_text, flags=re.MULTILINE)
     # Remove JSON dict key patterns at the start of lines like "key":
-    md_text = re.sub(r'^\s*"[a-zA-Z_]+"\s*:\s*', '', md_text, flags=re.MULTILINE)
+    md_text = re.sub(r'^\s*"[a-zA-Z_]+"\s*:\s*', "", md_text, flags=re.MULTILINE)
     # Remove trailing commas at end of lines (JSON list/dict remnants)
-    md_text = re.sub(r',\s*$', '', md_text, flags=re.MULTILINE)
+    md_text = re.sub(r",\s*$", "", md_text, flags=re.MULTILINE)
 
     html_out = []
     lines = md_text.split("\n")
@@ -481,14 +484,23 @@ def parse_markdown_to_html(md_text: str) -> str:
             continue
 
         # Pass through raw HTML blocks (SVG figures, divs, etc.)
-        if line_stripped.startswith("<div") or line_stripped.startswith("</div") or \
-           line_stripped.startswith("<svg") or line_stripped.startswith("</svg") or \
-           line_stripped.startswith("<circle") or line_stripped.startswith("<rect") or \
-           line_stripped.startswith("<line") or line_stripped.startswith("<text") or \
-           line_stripped.startswith("<path") or line_stripped.startswith("<polyline") or \
-           line_stripped.startswith("<polygon") or line_stripped.startswith("<defs") or \
-           line_stripped.startswith("</defs") or line_stripped.startswith("<marker") or \
-           line_stripped.startswith("</marker"):
+        if (
+            line_stripped.startswith("<div")
+            or line_stripped.startswith("</div")
+            or line_stripped.startswith("<svg")
+            or line_stripped.startswith("</svg")
+            or line_stripped.startswith("<circle")
+            or line_stripped.startswith("<rect")
+            or line_stripped.startswith("<line")
+            or line_stripped.startswith("<text")
+            or line_stripped.startswith("<path")
+            or line_stripped.startswith("<polyline")
+            or line_stripped.startswith("<polygon")
+            or line_stripped.startswith("<defs")
+            or line_stripped.startswith("</defs")
+            or line_stripped.startswith("<marker")
+            or line_stripped.startswith("</marker")
+        ):
             if in_p:
                 html_out.append("</p>")
                 in_p = False
@@ -512,28 +524,32 @@ def parse_markdown_to_html(md_text: str) -> str:
             continue
 
         # Display equations $$...$$
-        if line_stripped.startswith("$$") and line_stripped.endswith("$$") and len(line_stripped) > 4:
+        if (
+            line_stripped.startswith("$$")
+            and line_stripped.endswith("$$")
+            and len(line_stripped) > 4
+        ):
             if in_p:
                 html_out.append("</p>")
                 in_p = False
             eq_content = line_stripped[2:-2].strip()
             # Check for equation number
-            num_match = re.search(r'\((\d+)\)\s*$', eq_content)
+            num_match = re.search(r"\((\d+)\)\s*$", eq_content)
             eq_num = ""
             if num_match:
                 eq_num = num_match.group(0)
-                eq_content = eq_content[:-len(eq_num)].strip()
+                eq_content = eq_content[: -len(eq_num)].strip()
 
             html_out.append(
                 f'<div class="equation-container">'
                 f'  <div class="equation-math">$${eq_content}$$</div>'
-                f'  {f"<div class=equation-number>{eq_num}</div>" if eq_num else ""}'
-                f'</div>'
+                f"  {f'<div class=equation-number>{eq_num}</div>' if eq_num else ''}"
+                f"</div>"
             )
             continue
 
         # Figures / Image embeds
-        fig_match = re.match(r'^!\[(.*?)\]\((.*?)\)', line_stripped)
+        fig_match = re.match(r"^!\[(.*?)\]\((.*?)\)", line_stripped)
         if fig_match:
             if in_p:
                 html_out.append("</p>")
@@ -544,7 +560,7 @@ def parse_markdown_to_html(md_text: str) -> str:
                 f'<div class="figure-container">'
                 f'  <img src="{_escape_html(img_url)}" style="max-width: 95%; max-height: 220px; display: block; margin: 0 auto;" />'
                 f'  <div class="figure-caption"><strong>Fig.</strong> {_escape_html(caption)}</div>'
-                f'</div>'
+                f"</div>"
             )
             continue
 
@@ -554,8 +570,8 @@ def parse_markdown_to_html(md_text: str) -> str:
             in_p = True
 
         html_line = _escape_html(line)
-        html_line = re.sub(r'\*\*(.*?)\*\*', r'<strong>\1</strong>', html_line)
-        html_line = re.sub(r'\*(.*?)\*', r'<em>\1</em>', html_line)
+        html_line = re.sub(r"\*\*(.*?)\*\*", r"<strong>\1</strong>", html_line)
+        html_line = re.sub(r"\*(.*?)\*", r"<em>\1</em>", html_line)
 
         html_out.append(html_line + " ")
 
@@ -571,42 +587,42 @@ def parse_markdown_to_html(md_text: str) -> str:
 
 def render_html_table(rows: list[str]) -> str:
     """Convert Markdown table rows to an HTML table with IEEE styling."""
-    html = ['<div class="table-container">', '  <table>']
+    html = ['<div class="table-container">', "  <table>"]
 
     headers = []
     body_rows = []
 
     for row in rows:
         cells = [c.strip() for c in row.split("|")[1:-1]]
-        if all(re.match(r'^[-:]+$', c) for c in cells):
+        if all(re.match(r"^[-:]+$", c) for c in cells):
             continue
         if not headers:
             headers = cells
         else:
             body_rows.append(cells)
 
-    html.append('    <thead>')
-    html.append('      <tr>')
+    html.append("    <thead>")
+    html.append("      <tr>")
     for h in headers:
-        html.append(f'        <th>{_escape_html(h)}</th>')
-    html.append('      </tr>')
-    html.append('    </thead>')
+        html.append(f"        <th>{_escape_html(h)}</th>")
+    html.append("      </tr>")
+    html.append("    </thead>")
 
-    html.append('    <tbody>')
+    html.append("    <tbody>")
     for r in body_rows:
-        html.append('      <tr>')
+        html.append("      <tr>")
         for c in r:
             safe_cell = _escape_html(c)
             # Bold the "Proposed" rows
-            if '<strong>' in c or 'Proposed' in c:
-                html.append(f'        <td><strong>{safe_cell}</strong></td>')
+            if "<strong>" in c or "Proposed" in c:
+                html.append(f"        <td><strong>{safe_cell}</strong></td>")
             else:
-                html.append(f'        <td>{safe_cell}</td>')
-        html.append('      </tr>')
-    html.append('    </tbody>')
+                html.append(f"        <td>{safe_cell}</td>")
+        html.append("      </tr>")
+    html.append("    </tbody>")
 
-    html.append('  </table>')
-    html.append('</div>')
+    html.append("  </table>")
+    html.append("</div>")
     return "\n".join(html)
 
 
@@ -629,7 +645,6 @@ def _build_sections_html(sections: list[dict], content_md: str = "") -> str:
 
 
 class PDFGenerator:
-
     # Path to the standalone Playwright worker script
     _WORKER_SCRIPT = os.path.join(os.path.dirname(__file__), "_pdf_worker.py")
 
@@ -638,6 +653,7 @@ class PDFGenerator:
         """Check if Playwright and Chromium are available for PDF rendering."""
         try:
             from playwright.sync_api import sync_playwright
+
             with sync_playwright() as p:
                 executable = p.chromium.executable_path
                 if not executable:
@@ -684,7 +700,11 @@ class PDFGenerator:
         if proc.returncode != 0:
             error_msg = proc.stderr.strip() or "Unknown error in PDF worker"
             stderr_lower = error_msg.lower()
-            if "chromium" in stderr_lower or "browser" in stderr_lower or "executable" in stderr_lower:
+            if (
+                "chromium" in stderr_lower
+                or "browser" in stderr_lower
+                or "executable" in stderr_lower
+            ):
                 raise RuntimeError(f"Chromium/browser error: {error_msg}")
             logger.error("pdf_worker_failed", returncode=proc.returncode, stderr=error_msg)
             raise RuntimeError(f"PDF worker exited with code {proc.returncode}: {error_msg}")
@@ -718,16 +738,18 @@ class PDFGenerator:
                     html_content,
                     flags=re.IGNORECASE | re.DOTALL,
                 )
-                title_match = re.search(r'<h1[^>]*class="paper-title"[^>]*>(.*?)</h1>', html_content)
+                title_match = re.search(
+                    r'<h1[^>]*class="paper-title"[^>]*>(.*?)</h1>', html_content
+                )
                 if title_match:
                     pdf.set_font("Times", "B", 14)
-                    pdf.multi_cell(0, 8, re.sub(r'<[^>]+>', '', title_match.group(1)).strip())
+                    pdf.multi_cell(0, 8, re.sub(r"<[^>]+>", "", title_match.group(1)).strip())
                     pdf.ln(4)
                     pdf.set_font("Times", size=10)
 
                 for i, section in enumerate(sections):
-                    section_text = re.sub(r'<[^>]+>', ' ', section)
-                    section_text = re.sub(r'\s+', ' ', section_text).strip()
+                    section_text = re.sub(r"<[^>]+>", " ", section)
+                    section_text = re.sub(r"\s+", " ", section_text).strip()
                     if not section_text:
                         continue
                     if i % 2 == 1:
@@ -736,7 +758,7 @@ class PDFGenerator:
                         pdf.ln(2)
                         pdf.set_font("Times", size=10)
                     else:
-                        for para in re.split(r'\s{2,}', section_text):
+                        for para in re.split(r"\s{2,}", section_text):
                             para = para.strip()[:2000]
                             if para:
                                 pdf.multi_cell(0, 5, para)
@@ -773,14 +795,13 @@ class PDFGenerator:
             except Exception as e:
                 errors.append(("fpdf2", str(e)))
 
-        raise RuntimeError(
-            f"All PDF renderers failed: {'; '.join(f'{n}: {m}' for n, m in errors)}"
-        )
+        raise RuntimeError(f"All PDF renderers failed: {'; '.join(f'{n}: {m}' for n, m in errors)}")
 
     @staticmethod
     async def render_and_count_pages(html_path: str, pdf_path: str) -> int:
         """Render PDF and return page count in a single subprocess call."""
         import json as _json
+
         python_exe = sys.executable
         worker_script = PDFGenerator._WORKER_SCRIPT
 
@@ -812,6 +833,7 @@ class PDFGenerator:
     async def count_pdf_pages(pdf_path: str) -> int:
         """Count pages in an existing PDF file."""
         import json as _json
+
         python_exe = sys.executable
         worker_script = PDFGenerator._WORKER_SCRIPT
 
@@ -836,18 +858,24 @@ class PDFGenerator:
 
     @staticmethod
     async def compile_paper_to_pdf(
-        paper_data: dict,
-        layout: str = "2 Column",
-        font: str = "Times New Roman"
+        paper_data: dict, layout: str = "2 Column", font: str = "Times New Roman"
     ) -> bytes:
         """Compile structured paper data into a professional publication PDF."""
         title = _escape_html(paper_data.get("title", "Research Paper"))
         abstract = _escape_html(paper_data.get("abstract", ""))
         keywords_list = paper_data.get("keywords", [])
-        keywords = ", ".join(str(k) for k in keywords_list) if isinstance(keywords_list, list) else str(keywords_list)
+        keywords = (
+            ", ".join(str(k) for k in keywords_list)
+            if isinstance(keywords_list, list)
+            else str(keywords_list)
+        )
         keywords = _escape_html(keywords)
         authors_list = paper_data.get("authors", ["ResearchOS Autonomous System"])
-        authors = ", ".join(str(a) for a in authors_list) if isinstance(authors_list, list) else str(authors_list)
+        authors = (
+            ", ".join(str(a) for a in authors_list)
+            if isinstance(authors_list, list)
+            else str(authors_list)
+        )
         authors = _escape_html(authors)
 
         # Column count
@@ -877,7 +905,9 @@ class PDFGenerator:
             references_html += f'<li class="reference-item">{ref_clean}</li>\n'
 
         # Affiliation
-        affiliation = _escape_html(paper_data.get("affiliation", "ResearchOS Autonomous Research System"))
+        affiliation = _escape_html(
+            paper_data.get("affiliation", "ResearchOS Autonomous Research System")
+        )
 
         # Email
         email = paper_data.get("email", "")
@@ -951,8 +981,8 @@ class PDFGenerator:
     def _get_chromium_path() -> str | None:
         try:
             from playwright.sync_api import sync_playwright
+
             with sync_playwright() as p:
                 return p.chromium.executable_path
         except Exception:
             return None
-

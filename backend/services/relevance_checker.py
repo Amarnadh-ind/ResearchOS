@@ -9,9 +9,6 @@ import re
 
 import structlog
 
-from config.models import AgentRole
-from services.llm import get_llm_client
-
 # ── Embedding result cache: key = sha256(paragraph[:300] + "|" + topic) → score
 _embedding_cache: dict[str, float] = {}
 
@@ -143,7 +140,6 @@ async def ensure_paragraph_relevance(paragraph: str, topic: str, keywords: list[
     if not paragraph.strip():
         return paragraph
 
-    from config.settings import get_settings
 
     score = calculate_relevance(paragraph, topic, keywords)
     if score >= 0.85:

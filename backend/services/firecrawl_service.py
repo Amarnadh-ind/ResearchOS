@@ -41,7 +41,7 @@ class FirecrawlService:
         self.firecrawl_success = 0
         self.firecrawl_failed = 0
         self.firecrawl_latency_ms = 0
-        
+
         # Provider Card info
         self.status = "online" if self.available else "offline"
         self.last_latency = 0
@@ -55,6 +55,7 @@ class FirecrawlService:
         if self._redis_client is None:
             try:
                 import redis.asyncio as redis
+
                 self._redis_client = redis.from_url(self._redis_url, decode_responses=True)
                 await self._redis_client.ping()
             except Exception as e:
@@ -65,6 +66,7 @@ class FirecrawlService:
         """Retrieve a cached page from Redis or in-memory cache."""
         import hashlib
         import json
+
         cache_key = hashlib.sha256(url.encode()).hexdigest()
         redis_key = f"ros:firecrawl:cache:{cache_key}"
 
@@ -86,7 +88,7 @@ class FirecrawlService:
                 source_url = data.get("source_url") or data.get("url") or url
                 title = data.get("title") or url
                 metadata = data.get("metadata") or {}
-                
+
                 return BrowsedPage(
                     url=source_url,
                     title=title,
@@ -110,6 +112,7 @@ class FirecrawlService:
 
         import hashlib
         import json
+
         cache_key = hashlib.sha256(url.encode()).hexdigest()
         redis_key = f"ros:firecrawl:cache:{cache_key}"
 
@@ -142,11 +145,13 @@ class FirecrawlService:
     def _ensure_sdk_client(self):
         if self._client is None:
             from firecrawl import Firecrawl
+
             self._client = Firecrawl(api_key=self._api_key, base_url=self._base_url)
 
     async def _ensure_http_client(self):
         if self._http_client is None:
             import httpx
+
             self._http_client = httpx.AsyncClient(
                 headers={
                     "Authorization": f"Bearer {self._api_key}",
@@ -167,6 +172,7 @@ class FirecrawlService:
         Returns a BrowsedPage with extracted content, title, and metadata.
         """
         from config.settings import get_settings
+
         _settings = get_settings()
         if timeout is None:
             timeout = _settings.fast_mode_firecrawl_timeout if _settings.fast_mode else 30000
@@ -178,6 +184,7 @@ class FirecrawlService:
 
         if self.available:
             import time
+
             self.firecrawl_requests += 1
             start_time = time.monotonic()
             try:
@@ -227,6 +234,7 @@ class FirecrawlService:
             # If batching is available and we have >= 3 uncached URLs, batch scrape them
             if self.available and len(uncached_urls) >= 3:
                 import time
+
                 self.firecrawl_requests += 1
                 start_time = time.monotonic()
                 try:
@@ -258,7 +266,7 @@ class FirecrawlService:
                     self.status = "offline"
                     self.last_error = str(e)
                     logger.warning("firecrawl_sdk_batch_failed_falling_back", error=str(e))
-                    
+
                     # Fallback sequentially for all uncached
                     for url in uncached_urls:
                         p = await self.scrape(url, timeout)
@@ -351,7 +359,9 @@ class FirecrawlService:
         results_data = await asyncio.to_thread(_do_batch_scrape)
 
         results = []
-        for item in results_data if isinstance(results_data, list) else results_data.get("data", []):
+        for item in (
+            results_data if isinstance(results_data, list) else results_data.get("data", [])
+        ):
             if isinstance(item, dict):
                 data = item
             else:
@@ -368,18 +378,20 @@ class FirecrawlService:
             word_count = len(markdown.split())
             quality = self._compute_quality(markdown, metadata)
 
-            results.append(BrowsedPage(
-                url=page_url,
-                title=title or page_url,
-                content=markdown,
-                content_type="markdown",
-                word_count=word_count,
-                extraction_quality=quality,
-                publication_date=publication_date or "",
-                author=author or "",
-                site_name=site_name or "",
-                description=description or "",
-            ))
+            results.append(
+                BrowsedPage(
+                    url=page_url,
+                    title=title or page_url,
+                    content=markdown,
+                    content_type="markdown",
+                    word_count=word_count,
+                    extraction_quality=quality,
+                    publication_date=publication_date or "",
+                    author=author or "",
+                    site_name=site_name or "",
+                    description=description or "",
+                )
+            )
 
         logger.info("firecrawl_sdk_batch_success", requested=len(urls), received=len(results))
         return results
@@ -406,6 +418,7 @@ class FirecrawlService:
                 content_type = response.headers.get("content-type", "").lower()
                 if "application/pdf" in content_type or url.lower().endswith(".pdf"):
                     from services.pdf_parser import get_pdf_parser
+
                     parser = get_pdf_parser()
                     parsed = await parser.parse_pdf(response.content)
                     title = parsed.get("title") or url

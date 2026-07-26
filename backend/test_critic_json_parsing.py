@@ -61,7 +61,7 @@ TEST_CASES = [
     },
     {
         "name": "Unterminated string at end (the actual Critic bug)",
-        "input": '{"critiques": [{"claim": "Electric vehicles reduce emissions", "is_valid": true, "critique": "The evidence strongly supports this claim. Multiple peer-reviewed studies have demonstrated that EVs produce significantly fewer greenhouse gas emissions over their lifecycle compared to internal combustion engine vehicles, even when accounting for electricity generation sources. However, the magnitude of reduction varies by region and electricity grid composition', 
+        "input": '{"critiques": [{"claim": "Electric vehicles reduce emissions", "is_valid": true, "critique": "The evidence strongly supports this claim. Multiple peer-reviewed studies have demonstrated that EVs produce significantly fewer greenhouse gas emissions over their lifecycle compared to internal combustion engine vehicles, even when accounting for electricity generation sources. However, the magnitude of reduction varies by region and electricity grid composition',
         "should_parse": True,
     },
     {
@@ -86,12 +86,19 @@ TEST_CASES = [
     },
     {
         "name": "Real-world truncated response (160 columns, char 10110)",
-        "input": '{"critiques": [' + ','.join([
-            '{"claim": "Claim ' + str(i) + ' about autonomous systems", "is_valid": true, "critique": "' + 
-            'This claim is well-supported by evidence from multiple peer-reviewed sources. ' * 3 + 
-            '", "evidence_quality": "strong", "suggested_verification": "Cross-reference with IEEE database"}'
-            for i in range(1, 20)
-        ]) + ', {"claim": "Final claim", "is_valid": true, "critique": "This is the last critique that gets truncated because the response hits the token limit and the JSON string is never properly closed',
+        "input": '{"critiques": ['
+        + ",".join(
+            [
+                '{"claim": "Claim '
+                + str(i)
+                + ' about autonomous systems", "is_valid": true, "critique": "'
+                + "This claim is well-supported by evidence from multiple peer-reviewed sources. "
+                * 3
+                + '", "evidence_quality": "strong", "suggested_verification": "Cross-reference with IEEE database"}'
+                for i in range(1, 20)
+            ]
+        )
+        + ', {"claim": "Final claim", "is_valid": true, "critique": "This is the last critique that gets truncated because the response hits the token limit and the JSON string is never properly closed',
         "should_parse": True,
     },
 ]
@@ -119,7 +126,7 @@ def run_tests():
 
         try:
             result = client._parse_json_response(raw, AgentRole.CRITIC)
-            
+
             if should_parse:
                 # Verify it's actually a dict
                 assert isinstance(result, dict), f"Expected dict, got {type(result)}"
@@ -158,14 +165,14 @@ def run_tests():
 def test_extract_json():
     """Test the JSON extractor independently."""
     print("── Testing _extract_json ──")
-    
+
     cases = [
         ('```json\n{"a": 1}\n```', '{"a": 1}'),
         ('Here is the result: {"a": 1}', '{"a": 1}'),
         ('{"a": 1}\n\nHope this helps!', '{"a": 1}'),
         ('{"a": [1, 2, 3]}', '{"a": [1, 2, 3]}'),
     ]
-    
+
     for raw, expected in cases:
         result = LLMClient._extract_json(raw)
         status = "PASS" if result.strip() == expected.strip() else "FAIL"
@@ -176,7 +183,7 @@ def test_extract_json():
 def test_repair_json():
     """Test the JSON repairer independently."""
     print("── Testing _repair_json ──")
-    
+
     cases = [
         # Trailing commas
         ('{"a": 1, "b": 2,}', '{"a": 1, "b": 2}'),
@@ -184,7 +191,7 @@ def test_repair_json():
         # Unterminated string
         ('{"a": "hello', '{"a": "hello"}'),
     ]
-    
+
     for raw, expected in cases:
         result = LLMClient._repair_json(raw)
         try:

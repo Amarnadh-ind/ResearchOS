@@ -21,6 +21,7 @@ logger = structlog.get_logger()
 
 # ── Topic detection ──────────────────────────────────────────────────────
 
+
 def _detect_paper_topic(paper_data: dict, topic: str | None = None) -> str:
     """Detect the paper topic domain from its title and section headings."""
     title = (paper_data.get("title", "") or "").lower()
@@ -31,15 +32,35 @@ def _detect_paper_topic(paper_data: dict, topic: str | None = None) -> str:
     if topic:
         combined += " " + topic.lower()
 
-    if any(k in combined for k in ["mcp", "model context protocol", "json-rpc", "stdio transport", "sse transport"]):
+    if any(
+        k in combined
+        for k in ["mcp", "model context protocol", "json-rpc", "stdio transport", "sse transport"]
+    ):
         return "mcp"
-    if any(k in combined for k in ["ev", "electric vehicle", "battery", "anfis", "interleaved", "dc-dc", "buck converter", "ev charging"]):
+    if any(
+        k in combined
+        for k in [
+            "ev",
+            "electric vehicle",
+            "battery",
+            "anfis",
+            "interleaved",
+            "dc-dc",
+            "buck converter",
+            "ev charging",
+        ]
+    ):
         return "anfis"
-    if any(k in combined for k in ["crop", "plant", "disease", "cropvit", "plantvillage", "pathology"]):
+    if any(
+        k in combined for k in ["crop", "plant", "disease", "cropvit", "plantvillage", "pathology"]
+    ):
         return "crop"
     if any(k in combined for k in ["transport", "railway", "metro", "transit", "road"]):
         return "transport"
-    if any(k in combined for k in ["cinema", "film", "movie", "bollywood", "tollywood", "indian cinema"]):
+    if any(
+        k in combined
+        for k in ["cinema", "film", "movie", "bollywood", "tollywood", "indian cinema"]
+    ):
         return "cinema"
 
     # Clean combined to avoid matching standard section heading names like 'literature review'
@@ -47,7 +68,22 @@ def _detect_paper_topic(paper_data: dict, topic: str | None = None) -> str:
     for phrase in ["literature review", "literature survey"]:
         cleaned_combined = cleaned_combined.replace(phrase, "")
 
-    non_tech_indicators = ["history", "art", "music", "culture", "literature", "society", "acting", "theater", "humanities", "philosophy", "education", "policy", "social", "politics"]
+    non_tech_indicators = [
+        "history",
+        "art",
+        "music",
+        "culture",
+        "literature",
+        "society",
+        "acting",
+        "theater",
+        "humanities",
+        "philosophy",
+        "education",
+        "policy",
+        "social",
+        "politics",
+    ]
     if any(ind in cleaned_combined for ind in non_tech_indicators):
         return "humanities"
 
@@ -313,7 +349,7 @@ MCP_EXPANSION_BLOCKS = {
             "specification lacks a standardized, built-in authorization framework for remote SSE endpoints, "
             "leaving token management, user authentication, and transport-level encryption as implementation-defined "
             "concerns that developers must resolve individually."
-        )
+        ),
     ],
 }
 
@@ -454,7 +490,7 @@ ANFIS_EXPANSION_BLOCKS = {
             "saturation and capacitor ESR degradation). We also plan to evaluate the controller's performance "
             "in bi-directional power flow scenarios, which are critical for Vehicle-to-Grid (V2G) charging systems."
         )
-    ]
+    ],
 }
 
 
@@ -720,69 +756,69 @@ GENERIC_EXPANSION_BLOCKS = {
 CINEMA_EXPANSION_BLOCKS = {
     "introduction": [
         "The historical evolution of Indian cinema is closely tied to the social and political transformation of the nation. From early silent films that drew upon mythological narratives to post-independence social dramas that addressed nation-building, cinema has functioned as a central site for cultural negotiation. This double role of reflection and influence continues to define the medium in the contemporary global era.",
-        "In analyzing the modern film industry, it is essential to consider the coexistence of diverse regional languages. While Bollywood (Hindi cinema) has historically dominated global perceptions, regional industries in Telugu, Tamil, Malayalam, and Kannada languages have established distinct aesthetic practices and economic models, creating a complex, multicentered national cinematic landscape."
+        "In analyzing the modern film industry, it is essential to consider the coexistence of diverse regional languages. While Bollywood (Hindi cinema) has historically dominated global perceptions, regional industries in Telugu, Tamil, Malayalam, and Kannada languages have established distinct aesthetic practices and economic models, creating a complex, multicentered national cinematic landscape.",
     ],
     "literature": [
         "Scholarly work on Indian cinema has historically focused on the ideological structures of the narrative form. Prasad [1] analyzed how the classic 'Masala' format integrated song, dance, action, and melodrama to address diverse audience segments, acting as a unifying cultural agent during times of social transition.",
-        "Recent literature has examined the impact of economic liberalization on exhibition practices. The transition from single-screen theaters to urban multiplexes changed spectatorship demographics, shifting content production toward middle-class sensibilities and urban narratives [5]."
+        "Recent literature has examined the impact of economic liberalization on exhibition practices. The transition from single-screen theaters to urban multiplexes changed spectatorship demographics, shifting content production toward middle-class sensibilities and urban narratives [5].",
     ],
     "methodology": [
         "To systematically evaluate these shifts, our analytical framework combines qualitative textual analysis with quantitative distribution and box office tracking. We compile exhibition run times, regional revenue shares, and streaming release windows to map the contemporary landscape.",
-        "We trace the distribution pipeline from production houses to sub-distributors, evaluating how the compressions of theatrical windows have reshaped risk-sharing agreements between producers and digital streaming platforms."
+        "We trace the distribution pipeline from production houses to sub-distributors, evaluating how the compressions of theatrical windows have reshaped risk-sharing agreements between producers and digital streaming platforms.",
     ],
     "results": [
         "The empirical data shows a dramatic shift in theatrical market share. Telugu and Tamil films now routinely cross over to Hindi-speaking markets, achieving unprecedented national box office success and reshaping investment patterns across regional hubs.",
-        "Furthermore, OTT platforms have created secondary monetization avenues for small-budget films, allowing diverse genres and realistic narratives to bypass the high exhibition costs of multiplexes and reach niche global audiences."
+        "Furthermore, OTT platforms have created secondary monetization avenues for small-budget films, allowing diverse genres and realistic narratives to bypass the high exhibition costs of multiplexes and reach niche global audiences.",
     ],
     "discussion": [
         "These patterns suggest that the dominance of the singular national cinema paradigm is giving way to a highly fragmented and decentralized structure. This decentralization presents new opportunities for narrative diversity but also introduces challenges regarding language translation, dubbing quality, and cultural preservation.",
-        "The economic pressure to produce pan-Indian crossover hits may also lead to a standardization of action and spectacle, potentially marginalizing the parallel cinema traditions that historically prioritized local social realities."
+        "The economic pressure to produce pan-Indian crossover hits may also lead to a standardization of action and spectacle, potentially marginalizing the parallel cinema traditions that historically prioritized local social realities.",
     ],
     "comparison": [
         "A comparison of traditional distribution models against hybrid theatrical-streaming models reveals that modern releases achieve up to 45% higher initial revenue realization, though the longevity of theatrical runs has decreased significantly from several months to under three weeks.",
-        "Unlike the single-screen era where films relied on word-of-mouth over several weeks, the modern multiplex-digital system demands intense front-loaded marketing campaign investments to capture audience attention in the opening weekend."
+        "Unlike the single-screen era where films relied on word-of-mouth over several weeks, the modern multiplex-digital system demands intense front-loaded marketing campaign investments to capture audience attention in the opening weekend.",
     ],
     "limitations": [
         "A key limitation of this study is the reliance on self-reported box office figures, which in the Indian film industry can be subject to reporting discrepancies across regions. Additionally, detailed viewership data from private OTT streaming platforms is highly guarded, limiting our ability to measure precise domestic consumption.",
-        "Future investigations should incorporate broader audience surveys across tier-2 and tier-3 cities to capture the viewing habits of demographics outside major urban multiplex hubs."
+        "Future investigations should incorporate broader audience surveys across tier-2 and tier-3 cities to capture the viewing habits of demographics outside major urban multiplex hubs.",
     ],
     "future_work": [
         "Subsequent research will examine the impact of AI-driven dubbing and localization tools on the accessibility of regional cinema in international markets. We also plan to study the evolving regulatory policies regarding digital content certification and censorship on streaming networks."
-    ]
+    ],
 }
 
 HUMANITIES_EXPANSION_BLOCKS = {
     "introduction": [
         "The study of {topic} is integral to understanding contemporary social, historical, and cultural structures. By analyzing how {topic} intersects with everyday practices, researchers can uncover the subtle mechanisms that shape human behavior and institutional norms.",
-        "Theoretical models of {topic} have evolved to account for globalized networks and localized adaptations. This dual focus allows for a more nuanced exploration of the variations and commonalities across different social groups and geographic regions."
+        "Theoretical models of {topic} have evolved to account for globalized networks and localized adaptations. This dual focus allows for a more nuanced exploration of the variations and commonalities across different social groups and geographic regions.",
     ],
     "literature": [
         "Academic inquiries into {topic} have traditionally relied on qualitative case studies and historical comparisons. Early scholars established the foundational paradigms, demonstrating how {topic} influences institutional development and individual agency [1].",
-        "Recent scholarship has incorporated mixed-methods approaches, combining ethnographic observations with large-scale survey data to validate previous theoretical assertions and identify emerging trends [5]."
+        "Recent scholarship has incorporated mixed-methods approaches, combining ethnographic observations with large-scale survey data to validate previous theoretical assertions and identify emerging trends [5].",
     ],
     "methodology": [
         "Our analytical framework for evaluating {topic} employs a critical interpretative methodology combined with systematic data categorization. We examine primary source materials, historical archives, and contemporary cultural artifacts to trace key developments.",
-        "We also conduct structured interviews and thematic coding to ensure that the diverse perspectives of stakeholders are accurately represented and analyzed within our research design."
+        "We also conduct structured interviews and thematic coding to ensure that the diverse perspectives of stakeholders are accurately represented and analyzed within our research design.",
     ],
     "results": [
         "The findings indicate a strong correlation between the development of {topic} and the transformation of local community structures. Specifically, changes in policy and public discourse have led to measurable shifts in engagement and public perception.",
-        "Furthermore, our comparative analysis reveals significant variations based on socio-economic factors, highlighting the need for localized and context-sensitive strategies when addressing the challenges associated with {topic}."
+        "Furthermore, our comparative analysis reveals significant variations based on socio-economic factors, highlighting the need for localized and context-sensitive strategies when addressing the challenges associated with {topic}.",
     ],
     "discussion": [
         "These observations highlight the complex and multi-faceted nature of {topic}. The tensions between traditional practices and modern pressures create dynamic points of negotiation that resist simple categorization.",
-        "This complexity underscores the limitations of one-size-fits-all policy interventions, suggesting instead that effective solutions must be co-designed with local communities and adapted to their specific historical contexts."
+        "This complexity underscores the limitations of one-size-fits-all policy interventions, suggesting instead that effective solutions must be co-designed with local communities and adapted to their specific historical contexts.",
     ],
     "comparison": [
         "A comparison of alternative approaches to {topic} demonstrates that participatory models yield higher satisfaction and longer-term sustainability compared to top-down administrative frameworks.",
-        "While top-down models can be implemented more rapidly, they frequently suffer from lack of local buy-in and fail to adapt to the unique cultural nuances of the target population."
+        "While top-down models can be implemented more rapidly, they frequently suffer from lack of local buy-in and fail to adapt to the unique cultural nuances of the target population.",
     ],
     "limitations": [
         "One of the primary limitations of this research is the geographical focus of our fieldwork, which may restrict the generalizability of our findings to other cultural contexts. Additionally, the qualitative nature of our data relies on subjective interpretations that warrant further validation through quantitative measures.",
-        "To address these limitations, future research should expand the scope of data collection to include a broader range of communities and employ collaborative cross-regional research designs."
+        "To address these limitations, future research should expand the scope of data collection to include a broader range of communities and employ collaborative cross-regional research designs.",
     ],
     "future_work": [
         "Future research directions include long-term longitudinal studies to assess the generational impacts of {topic}. We also plan to investigate how emerging communication technologies shape the dissemination and reception of ideas related to {topic}."
-    ]
+    ],
 }
 
 CROP_EXPANSION_BLOCKS = {
@@ -977,7 +1013,18 @@ def _classify_section(heading: str) -> str:
         return "introduction"
     if any(k in h for k in ("LITERATURE", "RELATED", "REVIEW", "PRIOR", "SURVEY")):
         return "literature"
-    if any(k in h for k in ("METHOD", "PROPOSED", "APPROACH", "FRAMEWORK", "SYSTEM MODEL", "DESIGN", "ALGORITHM")):
+    if any(
+        k in h
+        for k in (
+            "METHOD",
+            "PROPOSED",
+            "APPROACH",
+            "FRAMEWORK",
+            "SYSTEM MODEL",
+            "DESIGN",
+            "ALGORITHM",
+        )
+    ):
         return "methodology"
     if any(k in h for k in ("RESULT", "EXPERIMENT", "SIMULATION", "PERFORMANCE", "EVALUATION")):
         return "results"
@@ -1015,15 +1062,20 @@ async def expand_paper_content(
     if not settings.openrouter_api_key or settings.openrouter_api_key.startswith("sk-proj-pTKXhhb"):
         use_mock = True
 
-
     from services.llm_manager import get_llm_manager
+
     mgr = get_llm_manager()
-    has_any_provider = any([
-        mgr.settings.gemini_api_key,
-        mgr.settings.grok_api_key,
-        (mgr.settings.openrouter_api_key and not mgr.settings.openrouter_api_key.startswith("sk-proj-")),
-        mgr.settings.openai_api_key
-    ])
+    has_any_provider = any(
+        [
+            mgr.settings.gemini_api_key,
+            mgr.settings.grok_api_key,
+            (
+                mgr.settings.openrouter_api_key
+                and not mgr.settings.openrouter_api_key.startswith("sk-proj-")
+            ),
+            mgr.settings.openai_api_key,
+        ]
+    )
     if has_any_provider:
         use_mock = False
 
@@ -1098,7 +1150,7 @@ async def expand_paper_content(
                 f"Paper Title: {paper_data.get('title', 'Academic Paper')}\n"
                 f"Paper Abstract: {paper_data.get('abstract', '')}\n"
                 f"Topic: {topic or paper_data.get('title', 'Academic Paper')}\n\n"
-                f"We are expanding the section: \"{heading}\"\n"
+                f'We are expanding the section: "{heading}"\n'
                 f"Current content of this section:\n{section.get('content', '')}\n\n"
                 f"The target word count for this section is {current_sec_words + sec_deficit} words.\n"
                 f"Current word count is {current_sec_words} words.\n"
@@ -1117,26 +1169,33 @@ async def expand_paper_content(
                     if new_content_clean.startswith("```"):
                         lines = new_content_clean.split("\n")
                         new_content_clean = "\n".join(lines[1:-1])
-                    
+
                     # Ensure paragraph relevance check on expanded paragraphs
                     from services.relevance_checker import ensure_paragraph_relevance
+
                     cleaned_p_list = []
                     for p in new_content_clean.split("\n\n"):
                         if p.strip():
-                            cleaned_p_list.append(await ensure_paragraph_relevance(p, topic or paper_data.get("title", ""), keywords))
+                            cleaned_p_list.append(
+                                await ensure_paragraph_relevance(
+                                    p, topic or paper_data.get("title", ""), keywords
+                                )
+                            )
                     new_content_clean = "\n\n".join(cleaned_p_list)
-                    
+
                     section["content"] = section.get("content", "") + "\n\n" + new_content_clean
                     block_words = count_words(new_content_clean)
                     words_added += block_words
-                    logger.info("expanded_section_success", heading=heading, added_words=block_words)
+                    logger.info(
+                        "expanded_section_success", heading=heading, added_words=block_words
+                    )
             except Exception as e:
                 logger.warning("failed_expanding_section_via_llm", heading=heading, error=str(e))
 
         # If still short, add new sections via LLM
         if words_added < deficit and (deficit - words_added) > 300:
             remaining = deficit - words_added
-            
+
             # Decide what new section to add
             new_headings = []
             # Check if Limitations and Future Work exist
@@ -1144,9 +1203,19 @@ async def expand_paper_content(
             has_future_work = any("FUTURE" in s.get("heading", "").upper() for s in sections)
 
             if not has_limitations:
-                new_headings.append(("LIMITATIONS AND DISCUSSIONS", remaining // 2 if not has_future_work else remaining))
+                new_headings.append(
+                    (
+                        "LIMITATIONS AND DISCUSSIONS",
+                        remaining // 2 if not has_future_work else remaining,
+                    )
+                )
             if not has_future_work:
-                new_headings.append(("FUTURE WORK AND RESEARCH DIRECTIONS", remaining // 2 if not has_limitations else remaining))
+                new_headings.append(
+                    (
+                        "FUTURE WORK AND RESEARCH DIRECTIONS",
+                        remaining // 2 if not has_limitations else remaining,
+                    )
+                )
 
             for new_heading, budget_w in new_headings:
                 if words_added >= deficit:
@@ -1164,7 +1233,7 @@ async def expand_paper_content(
                     f"Paper Title: {paper_data.get('title', 'Academic Paper')}\n"
                     f"Paper Abstract: {paper_data.get('abstract', '')}\n"
                     f"Topic: {topic or paper_data.get('title', 'Academic Paper')}\n\n"
-                    f"We need to generate a new section titled \"{new_heading}\" to address a word count deficit.\n"
+                    f'We need to generate a new section titled "{new_heading}" to address a word count deficit.\n'
                     f"Please write approximately {budget_w} words of high-quality, technically rigorous academic paragraphs for this new section.\n"
                     f"Return ONLY the content for the section. Do not include the heading itself in your output."
                 )
@@ -1183,22 +1252,35 @@ async def expand_paper_content(
 
                         # Ensure paragraph relevance check on expanded paragraphs
                         from services.relevance_checker import ensure_paragraph_relevance
+
                         cleaned_p_list = []
                         for p in new_content_clean.split("\n\n"):
                             if p.strip():
-                                cleaned_p_list.append(await ensure_paragraph_relevance(p, topic or paper_data.get("title", ""), keywords))
+                                cleaned_p_list.append(
+                                    await ensure_paragraph_relevance(
+                                        p, topic or paper_data.get("title", ""), keywords
+                                    )
+                                )
                         new_content_clean = "\n\n".join(cleaned_p_list)
 
-                        sections.append({
-                            "heading": new_heading,
-                            "content": new_content_clean,
-                            "subsections": [],
-                        })
+                        sections.append(
+                            {
+                                "heading": new_heading,
+                                "content": new_content_clean,
+                                "subsections": [],
+                            }
+                        )
                         block_words = count_words(new_content_clean)
                         words_added += block_words
-                        logger.info("added_new_section_success", heading=new_heading, added_words=block_words)
+                        logger.info(
+                            "added_new_section_success",
+                            heading=new_heading,
+                            added_words=block_words,
+                        )
                 except Exception as e:
-                    logger.warning("failed_adding_new_section_via_llm", heading=new_heading, error=str(e))
+                    logger.warning(
+                        "failed_adding_new_section_via_llm", heading=new_heading, error=str(e)
+                    )
     else:
         # ── Template-based Expansion (MOCK_LLM = True) ──────────────────
         # Detect topic and select appropriate expansion blocks
@@ -1234,7 +1316,12 @@ async def expand_paper_content(
                 continue
 
             category = _classify_section(heading)
-            blocks = active_blocks.get(category, active_blocks.get("discussion", list(active_blocks.values())[0] if active_blocks else []))
+            blocks = active_blocks.get(
+                category,
+                active_blocks.get(
+                    "discussion", list(active_blocks.values())[0] if active_blocks else []
+                ),
+            )
 
             # Add expansion blocks to section content
             for block in blocks:
@@ -1291,14 +1378,17 @@ async def expand_paper_content(
                         "in real-world deployment scenarios.",
                         "Second, the computational requirements of the proposed framework may present challenges "
                         "for deployment in resource-constrained edge settings. Further optimizations or model compression "
-                        "techniques may be required to enable deployment on low-cost hardware."
+                        "techniques may be required to enable deployment on low-cost hardware.",
                     ]
-                
+
                 # Check if limitations section already exists
                 existing_limitations = None
                 for section in sections:
                     sec_cat = _classify_section(section.get("heading", ""))
-                    if "LIMITATION" in section.get("heading", "").upper() or sec_cat == "discussion":
+                    if (
+                        "LIMITATION" in section.get("heading", "").upper()
+                        or sec_cat == "discussion"
+                    ):
                         # If it has limitations in the title or is classified as discussion, consider it
                         if "LIMITATION" in section.get("heading", "").upper():
                             existing_limitations = section
@@ -1307,15 +1397,19 @@ async def expand_paper_content(
                 if existing_limitations:
                     for block in limitations_blocks:
                         if block not in existing_limitations.get("content", ""):
-                            existing_limitations["content"] = existing_limitations.get("content", "") + "\n\n" + block
+                            existing_limitations["content"] = (
+                                existing_limitations.get("content", "") + "\n\n" + block
+                            )
                             words_added += count_words(block)
                 else:
                     limitations_content = "\n\n".join(limitations_blocks)
-                    sections.append({
-                        "heading": "LIMITATIONS AND DISCUSSIONS",
-                        "content": limitations_content,
-                        "subsections": [],
-                    })
+                    sections.append(
+                        {
+                            "heading": "LIMITATIONS AND DISCUSSIONS",
+                            "content": limitations_content,
+                            "subsections": [],
+                        }
+                    )
                     words_added += count_words(limitations_content)
 
             # Add/expand future work
@@ -1333,11 +1427,13 @@ async def expand_paper_content(
                             found = True
                             break
                     if not found:
-                        sections.append({
-                            "heading": "FUTURE WORK AND RESEARCH DIRECTIONS",
-                            "content": block,
-                            "subsections": [],
-                        })
+                        sections.append(
+                            {
+                                "heading": "FUTURE WORK AND RESEARCH DIRECTIONS",
+                                "content": block,
+                                "subsections": [],
+                            }
+                        )
                         words_added += count_words(block)
 
     paper_data["sections"] = sections
@@ -1358,8 +1454,9 @@ def _heading_matches(heading: str, budget_key: str) -> bool:
     k = budget_key.upper().strip().lstrip("IVXLCDM. ")
     # Remove Roman numerals prefix
     import re
-    h = re.sub(r'^[IVXLCDM]+\.\s*', '', heading.upper().strip())
-    k = re.sub(r'^[IVXLCDM]+\.\s*', '', budget_key.upper().strip())
+
+    h = re.sub(r"^[IVXLCDM]+\.\s*", "", heading.upper().strip())
+    k = re.sub(r"^[IVXLCDM]+\.\s*", "", budget_key.upper().strip())
     # Check if the core words overlap
     h_words = set(h.split())
     k_words = set(k.split())
@@ -1367,4 +1464,3 @@ def _heading_matches(heading: str, budget_key: str) -> bool:
         return True
     # Fuzzy: check if one contains the other
     return h in k or k in h
-

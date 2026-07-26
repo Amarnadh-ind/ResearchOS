@@ -60,8 +60,8 @@ class ClaimExtractorAgent(BaseAgent):
 
             content = "\n".join(content_parts)[:6000]
 
-            user_prompt = f"""Source: {doc.get('title', 'Unknown')}
-URL: {doc.get('source_url', '')}
+            user_prompt = f"""Source: {doc.get("title", "Unknown")}
+URL: {doc.get("source_url", "")}
 
 Content:
 {content}

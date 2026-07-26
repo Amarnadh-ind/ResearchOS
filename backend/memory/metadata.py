@@ -30,7 +30,19 @@ class InMemoryMetadataBackend:
         return str(self._counter)
 
     async def get_active_session_ids(self) -> list[str]:
-        transient_statuses = {"pending", "planning", "searching", "browsing", "reading", "extracting", "critiquing", "analyzing_novelty", "writing", "citing", "formatting"}
+        transient_statuses = {
+            "pending",
+            "planning",
+            "searching",
+            "browsing",
+            "reading",
+            "extracting",
+            "critiquing",
+            "analyzing_novelty",
+            "writing",
+            "citing",
+            "formatting",
+        }
         return [sid for sid, s in self._sessions.items() if s.get("status") in transient_statuses]
 
     async def create_session(self, session_id: str, prompt: str) -> dict:
@@ -56,30 +68,52 @@ class InMemoryMetadataBackend:
     async def get_session(self, session_id: str) -> dict | None:
         return self._sessions.get(session_id)
 
-    async def store_source(self, session_id, url, title, source_type, content, content_hash, metadata=None) -> str:
+    async def store_source(
+        self, session_id, url, title, source_type, content, content_hash, metadata=None
+    ) -> str:
         sid = self._next_id()
         self._sources[sid] = {
-            "id": sid, "session_id": session_id, "url": url,
-            "title": title, "source_type": source_type,
-            "content": content[:50000], "content_hash": content_hash,
+            "id": sid,
+            "session_id": session_id,
+            "url": url,
+            "title": title,
+            "source_type": source_type,
+            "content": content[:50000],
+            "content_hash": content_hash,
         }
         return sid
 
     async def store_claim(self, session_id, claim_text, evidence, source_id, confidence) -> str:
         cid = self._next_id()
         self._claims[cid] = {
-            "id": cid, "session_id": session_id,
-            "claim_text": claim_text, "evidence": evidence,
-            "source_id": source_id, "confidence": confidence,
+            "id": cid,
+            "session_id": session_id,
+            "claim_text": claim_text,
+            "evidence": evidence,
+            "source_id": source_id,
+            "confidence": confidence,
         }
         return cid
 
-    async def store_paper(self, session_id, title, abstract, sections, references, content_md, layout="2 Column", font="Times New Roman") -> str:
+    async def store_paper(
+        self,
+        session_id,
+        title,
+        abstract,
+        sections,
+        references,
+        content_md,
+        layout="2 Column",
+        font="Times New Roman",
+    ) -> str:
         pid = self._next_id()
         self._papers[pid] = {
-            "id": pid, "session_id": session_id,
-            "title": title, "abstract": abstract,
-            "sections": sections, "references": references,
+            "id": pid,
+            "session_id": session_id,
+            "title": title,
+            "abstract": abstract,
+            "sections": sections,
+            "references": references,
             "content_md": content_md,
             "layout": layout,
             "font": font,
@@ -87,20 +121,41 @@ class InMemoryMetadataBackend:
         return pid
 
     async def log_agent_execution(
-        self, session_id, agent_name, status, input_data=None, output_data=None,
-        tokens_used=0, duration_ms=0, error=None,
-        model_name=None, tokens_in=0, tokens_out=0, cost=0.0, latency=0
+        self,
+        session_id,
+        agent_name,
+        status,
+        input_data=None,
+        output_data=None,
+        tokens_used=0,
+        duration_ms=0,
+        error=None,
+        model_name=None,
+        tokens_in=0,
+        tokens_out=0,
+        cost=0.0,
+        latency=0,
     ):
-        self._executions.append({
-            "session_id": session_id, "agent_name": agent_name,
-            "status": status, "tokens_used": tokens_used,
-            "duration_ms": duration_ms, "error": error,
-            "model_name": model_name, "tokens_in": tokens_in,
-            "tokens_out": tokens_out, "cost": cost, "latency": latency
-        })
+        self._executions.append(
+            {
+                "session_id": session_id,
+                "agent_name": agent_name,
+                "status": status,
+                "tokens_used": tokens_used,
+                "duration_ms": duration_ms,
+                "error": error,
+                "model_name": model_name,
+                "tokens_in": tokens_in,
+                "tokens_out": tokens_out,
+                "cost": cost,
+                "latency": latency,
+            }
+        )
 
     async def list_sessions(self, limit=20):
-        sessions = sorted(self._sessions.values(), key=lambda s: s.get("created_at", ""), reverse=True)
+        sessions = sorted(
+            self._sessions.values(), key=lambda s: s.get("created_at", ""), reverse=True
+        )
         return sessions[:limit]
 
     async def get_paper_by_session(self, session_id: str) -> dict | None:
@@ -149,15 +204,35 @@ class MetadataStore:
             self._session_factory = async_sessionmaker(
                 engine, class_=AsyncSession, expire_on_commit=False
             )
-            
+
             # Dynamically ensure metrics columns exist in agent_executions (Issue 3 / 9)
             try:
                 async with self._session_factory() as db:
-                    await db.execute(text("ALTER TABLE agent_executions ADD COLUMN IF NOT EXISTS model_name VARCHAR(100)"))
-                    await db.execute(text("ALTER TABLE agent_executions ADD COLUMN IF NOT EXISTS tokens_in INTEGER DEFAULT 0"))
-                    await db.execute(text("ALTER TABLE agent_executions ADD COLUMN IF NOT EXISTS tokens_out INTEGER DEFAULT 0"))
-                    await db.execute(text("ALTER TABLE agent_executions ADD COLUMN IF NOT EXISTS cost NUMERIC(10, 6) DEFAULT 0.000000"))
-                    await db.execute(text("ALTER TABLE agent_executions ADD COLUMN IF NOT EXISTS latency INTEGER DEFAULT 0"))
+                    await db.execute(
+                        text(
+                            "ALTER TABLE agent_executions ADD COLUMN IF NOT EXISTS model_name VARCHAR(100)"
+                        )
+                    )
+                    await db.execute(
+                        text(
+                            "ALTER TABLE agent_executions ADD COLUMN IF NOT EXISTS tokens_in INTEGER DEFAULT 0"
+                        )
+                    )
+                    await db.execute(
+                        text(
+                            "ALTER TABLE agent_executions ADD COLUMN IF NOT EXISTS tokens_out INTEGER DEFAULT 0"
+                        )
+                    )
+                    await db.execute(
+                        text(
+                            "ALTER TABLE agent_executions ADD COLUMN IF NOT EXISTS cost NUMERIC(10, 6) DEFAULT 0.000000"
+                        )
+                    )
+                    await db.execute(
+                        text(
+                            "ALTER TABLE agent_executions ADD COLUMN IF NOT EXISTS latency INTEGER DEFAULT 0"
+                        )
+                    )
                     await db.commit()
             except Exception as ex:
                 logger.warning("failed_altering_agent_executions_columns", error=str(ex))
@@ -182,6 +257,7 @@ class MetadataStore:
             return await self._memory.get_active_session_ids()
 
         from sqlalchemy import text
+
         async with self._session_factory() as db:
             result = await db.execute(
                 text("""
@@ -198,6 +274,7 @@ class MetadataStore:
             return await self._memory.create_session(session_id, prompt)
 
         from sqlalchemy import text
+
         async with self._session_factory() as db:
             result = await db.execute(
                 text("""
@@ -217,6 +294,7 @@ class MetadataStore:
             return await self._memory.update_session_status(session_id, status, error)
 
         from sqlalchemy import text
+
         async with self._session_factory() as db:
             if error:
                 await db.execute(
@@ -242,6 +320,7 @@ class MetadataStore:
             return await self._memory.get_session(session_id)
 
         from sqlalchemy import text
+
         async with self._session_factory() as db:
             result = await db.execute(
                 text("SELECT * FROM research_sessions WHERE id = :id"),
@@ -262,9 +341,12 @@ class MetadataStore:
     ) -> str:
         await self._ensure_backend()
         if self._using_fallback:
-            return await self._memory.store_source(session_id, url, title, source_type, content, content_hash, metadata)
+            return await self._memory.store_source(
+                session_id, url, title, source_type, content, content_hash, metadata
+            )
 
         from sqlalchemy import text
+
         async with self._session_factory() as db:
             result = await db.execute(
                 text("""
@@ -297,9 +379,12 @@ class MetadataStore:
     ) -> str:
         await self._ensure_backend()
         if self._using_fallback:
-            return await self._memory.store_claim(session_id, claim_text, evidence, source_id, confidence)
+            return await self._memory.store_claim(
+                session_id, claim_text, evidence, source_id, confidence
+            )
 
         from sqlalchemy import text
+
         async with self._session_factory() as db:
             result = await db.execute(
                 text("""
@@ -328,22 +413,29 @@ class MetadataStore:
         references: list,
         content_md: str,
         layout: str = "2 Column",
-        font: str = "Times New Roman"
+        font: str = "Times New Roman",
     ) -> str:
         await self._ensure_backend()
         if self._using_fallback:
-            return await self._memory.store_paper(session_id, title, abstract, sections, references, content_md, layout, font)
+            return await self._memory.store_paper(
+                session_id, title, abstract, sections, references, content_md, layout, font
+            )
 
         from sqlalchemy import text
+
         async with self._session_factory() as db:
             # Check if layout and font columns exist, otherwise add them dynamically
             try:
-                await db.execute(text("ALTER TABLE papers ADD COLUMN IF NOT EXISTS layout VARCHAR(50)"))
-                await db.execute(text("ALTER TABLE papers ADD COLUMN IF NOT EXISTS font VARCHAR(50)"))
+                await db.execute(
+                    text("ALTER TABLE papers ADD COLUMN IF NOT EXISTS layout VARCHAR(50)")
+                )
+                await db.execute(
+                    text("ALTER TABLE papers ADD COLUMN IF NOT EXISTS font VARCHAR(50)")
+                )
                 await db.commit()
             except Exception:
                 pass
-                
+
             result = await db.execute(
                 text("""
                     INSERT INTO papers (session_id, title, abstract, sections, "references", content_md, layout, font)
@@ -384,11 +476,23 @@ class MetadataStore:
         await self._ensure_backend()
         if self._using_fallback:
             return await self._memory.log_agent_execution(
-                session_id, agent_name, status, input_data, output_data, tokens_used, duration_ms, error,
-                model_name, tokens_in, tokens_out, cost, latency
+                session_id,
+                agent_name,
+                status,
+                input_data,
+                output_data,
+                tokens_used,
+                duration_ms,
+                error,
+                model_name,
+                tokens_in,
+                tokens_out,
+                cost,
+                latency,
             )
 
         from sqlalchemy import text
+
         async with self._session_factory() as db:
             await db.execute(
                 text("""
@@ -428,6 +532,7 @@ class MetadataStore:
             self._memory._counter = 0
         else:
             from sqlalchemy import text
+
             async with self._session_factory() as db:
                 try:
                     await db.execute(text("TRUNCATE TABLE agent_executions CASCADE"))
@@ -447,6 +552,7 @@ class MetadataStore:
             return await self._memory.get_paper_by_session(session_id)
 
         from sqlalchemy import text
+
         try:
             async with self._session_factory() as db:
                 result = await db.execute(
@@ -462,8 +568,6 @@ class MetadataStore:
         except Exception as e:
             logger.error("get_paper_by_session_failed", session_id=session_id, error=str(e))
         return None
-
-
 
 
 _metadata_store: MetadataStore | None = None

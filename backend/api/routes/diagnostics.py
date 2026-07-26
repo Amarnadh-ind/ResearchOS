@@ -91,8 +91,9 @@ def _format_provider_details(telemetry_models: dict) -> dict:
             is_match = False
             if cmp_model_id == model_id:
                 is_match = True
-            elif ("lite" not in model_id and "lite" not in cmp_model_id) or \
-                    ("lite" in model_id and "lite" in cmp_model_id):
+            elif ("lite" not in model_id and "lite" not in cmp_model_id) or (
+                "lite" in model_id and "lite" in cmp_model_id
+            ):
                 if (model_id in cmp_model_id) or (cmp_model_id in model_id):
                     is_match = True
 
@@ -103,6 +104,7 @@ def _format_provider_details(telemetry_models: dict) -> dict:
                 details[compat_key] = compat_entry
 
     from services.firecrawl_service import get_firecrawl_service
+
     firecrawl = get_firecrawl_service()
     details["firecrawl"] = {
         "status": firecrawl.status,
@@ -205,6 +207,7 @@ async def system_diagnostics(session_id: str | None = None):
     if session_id:
         try:
             from memory.session import get_session_memory
+
             session_mem = get_session_memory()
             state = await session_mem.get_state(session_id)
             if state:
@@ -240,12 +243,10 @@ async def pdf_diagnostics():
     fpdf2_ok = status["fpdf2"]["available"]
 
     from services.pdf_generator import KATEX_AUTO_INLINE, KATEX_CSS_INLINE, KATEX_JS_INLINE
+
     katex_ok = bool(KATEX_CSS_INLINE and KATEX_JS_INLINE and KATEX_AUTO_INLINE)
 
-    overall = (
-        "healthy" if (playwright_ok or fpdf2_ok)
-        else "unhealthy"
-    )
+    overall = "healthy" if (playwright_ok or fpdf2_ok) else "unhealthy"
 
     return {
         "status": overall,
@@ -285,22 +286,24 @@ async def cooldown_dashboard():
 
         recovery = QuotaTracker.get_recovery_info(record, cooldown_remaining)
 
-        models_status.append({
-            "model": model_id,
-            "provider": m.get("provider", "unknown"),
-            "priority": m.get("priority", 999),
-            "status": status,
-            "connected": connected,
-            "latency_ms": m.get("latency_ms", 0),
-            "requests_made": m.get("requests_used", 0),
-            "cooldown_remaining_s": cooldown_remaining,
-            "consecutive_failures": m.get("consecutive_failures", 0),
-            "last_error": last_error[:200],
-            "last_status_code": last_status,
-            "error_class": error_class,
-            "recovery": recovery,
-            "last_success": m.get("last_success"),
-        })
+        models_status.append(
+            {
+                "model": model_id,
+                "provider": m.get("provider", "unknown"),
+                "priority": m.get("priority", 999),
+                "status": status,
+                "connected": connected,
+                "latency_ms": m.get("latency_ms", 0),
+                "requests_made": m.get("requests_used", 0),
+                "cooldown_remaining_s": cooldown_remaining,
+                "consecutive_failures": m.get("consecutive_failures", 0),
+                "last_error": last_error[:200],
+                "last_status_code": last_status,
+                "error_class": error_class,
+                "recovery": recovery,
+                "last_success": m.get("last_success"),
+            }
+        )
 
     online_count = sum(1 for m in models_status if m["connected"])
     cooldown_count = sum(1 for m in models_status if m["status"] == "cooldown")

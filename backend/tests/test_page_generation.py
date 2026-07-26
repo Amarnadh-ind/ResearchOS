@@ -13,6 +13,7 @@ from graph.nodes import page_validation_node
 async def test_page_validation_node_fails_fast_on_max_expansions(monkeypatch):
     """Page validation no longer loops — always finalizes regardless of page count."""
     from config.settings import get_settings
+
     get_settings.cache_clear()
     get_settings().fast_mode = False
 
@@ -23,25 +24,22 @@ async def test_page_validation_node_fails_fast_on_max_expansions(monkeypatch):
         "final_paper": {
             "title": "Low Page Count Test Paper",
             "abstract": "This is a short abstract.",
-            "sections": [
-                {
-                    "heading": "I. Introduction",
-                    "content": "Short intro content."
-                }
-            ],
-            "references": ["[1] Source A"]
-        }
+            "sections": [{"heading": "I. Introduction", "content": "Short intro content."}],
+            "references": ["[1] Source A"],
+        },
     }
 
     # Mock embeddings to pass topic relevance
     async def mock_embed(query):
         return [1.0] * 384
+
     monkeypatch.setattr("retrieval.embeddings.embed_query", mock_embed)
     monkeypatch.setattr("retrieval.embeddings.cosine_similarity", lambda a, b: 0.90)
 
     # Mock compile_paper_to_pdf and count_pdf_pages to return 2 pages
     async def mock_compile(paper, **kwargs):
         return b"Dummy PDF bytes"
+
     async def mock_count(pdf_path):
         return 2
 
@@ -56,10 +54,12 @@ async def test_page_validation_node_fails_fast_on_max_expansions(monkeypatch):
     assert res["validation"]["page_count_achieved"] is False
     assert res["validation"]["actual_pages"] == 2
 
+
 @pytest.mark.asyncio
 async def test_page_validation_node_completes_one_pass(monkeypatch):
     """Page validator runs once and finalizes — no loops back to self."""
     from config.settings import get_settings
+
     get_settings.cache_clear()
     get_settings().fast_mode = False
 
@@ -68,32 +68,27 @@ async def test_page_validation_node_completes_one_pass(monkeypatch):
         "expansion_round": 1,
         "target_word_count": 7200,
         "page_budget": {
-            "section_budgets": {
-                "I. Introduction": {"min_words": 800, "fraction": 0.12}
-            }
+            "section_budgets": {"I. Introduction": {"min_words": 800, "fraction": 0.12}}
         },
         "final_paper": {
             "title": "Low Page Count Test Paper",
             "abstract": "This is a short abstract.",
-            "sections": [
-                {
-                    "heading": "I. Introduction",
-                    "content": "Short intro content."
-                }
-            ],
-            "references": ["[1] Source A"]
-        }
+            "sections": [{"heading": "I. Introduction", "content": "Short intro content."}],
+            "references": ["[1] Source A"],
+        },
     }
 
     # Mock embeddings
     async def mock_embed(query):
         return [1.0] * 384
+
     monkeypatch.setattr("retrieval.embeddings.embed_query", mock_embed)
     monkeypatch.setattr("retrieval.embeddings.cosine_similarity", lambda a, b: 0.90)
 
     # Mock PDF compiler to return 3 pages
     async def mock_compile(paper, **kwargs):
         return b"Dummy PDF bytes"
+
     async def mock_count(pdf_path):
         return 3
 

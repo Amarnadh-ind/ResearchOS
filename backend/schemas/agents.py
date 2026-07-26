@@ -12,6 +12,7 @@ class PlannerInput(BaseModel):
 
 class ResearchPlan(BaseModel):
     """Output of the Planner Agent."""
+
     research_question: str
     sub_questions: list[str]
     search_queries: list[str]
@@ -26,6 +27,7 @@ class ResearchPlan(BaseModel):
 
 class SearchResult(BaseModel):
     """A single search result."""
+
     title: str
     url: str
     snippet: str
@@ -37,6 +39,7 @@ class SearchResult(BaseModel):
 
 class SearchOutput(BaseModel):
     """Output of the Search Agent."""
+
     queries_executed: list[str]
     results: list[SearchResult]
     total_results: int
@@ -44,6 +47,7 @@ class SearchOutput(BaseModel):
 
 class BrowsedPage(BaseModel):
     """Content extracted from a web page."""
+
     url: str
     title: str
     content: str
@@ -58,12 +62,14 @@ class BrowsedPage(BaseModel):
 
 class BrowserOutput(BaseModel):
     """Output of the Browser Agent."""
+
     pages: list[BrowsedPage]
     failed_urls: list[str] = Field(default_factory=list)
 
 
 class ReadDocument(BaseModel):
     """A parsed and structured document."""
+
     source_url: str
     title: str
     sections: list[dict]  # {heading, content}
@@ -74,11 +80,13 @@ class ReadDocument(BaseModel):
 
 class ReaderOutput(BaseModel):
     """Output of the Reader Agent."""
+
     documents: list[ReadDocument]
 
 
 class ExtractedClaim(BaseModel):
     """A single extracted claim with evidence."""
+
     claim: str
     evidence: str
     source_url: str
@@ -89,12 +97,14 @@ class ExtractedClaim(BaseModel):
 
 class ClaimExtractionOutput(BaseModel):
     """Output of the Claim Extractor."""
+
     claims: list[ExtractedClaim]
     total_claims: int
 
 
 class CritiqueResult(BaseModel):
     """Critique of a single claim."""
+
     claim: str
     is_valid: bool
     critique: str
@@ -104,6 +114,7 @@ class CritiqueResult(BaseModel):
 
 class CriticOutput(BaseModel):
     """Output of the Critic Agent."""
+
     critiques: list[CritiqueResult]
     overall_evidence_quality: str
     rejected_claims: list[str]
@@ -112,6 +123,7 @@ class CriticOutput(BaseModel):
 
 class NoveltyAssessment(BaseModel):
     """Novelty analysis result."""
+
     novelty_score: float = Field(ge=0, le=1)
     novel_contributions: list[str]
     existing_work_overlap: list[str]
@@ -121,6 +133,7 @@ class NoveltyAssessment(BaseModel):
 
 class WriterOutput(BaseModel):
     """Output of the Writer Agent."""
+
     title: str
     abstract: str
     sections: list[dict]  # {heading, content, subsections}
@@ -129,6 +142,7 @@ class WriterOutput(BaseModel):
 
 class CitationEntry(BaseModel):
     """A formatted citation."""
+
     key: str  # e.g., "[1]"
     ieee_format: str
     authors: list[str]
@@ -142,12 +156,14 @@ class CitationEntry(BaseModel):
 
 class CitationOutput(BaseModel):
     """Output of the Citation Agent."""
+
     citations: list[CitationEntry]
     in_text_map: dict[str, str]  # claim_hash -> citation_key
 
 
 class IEEEPaper(BaseModel):
     """Final IEEE-formatted paper."""
+
     title: str
     authors: list[str] = Field(default_factory=lambda: ["ResearchOS Autonomous System"])
     abstract: str

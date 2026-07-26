@@ -83,7 +83,9 @@ class ModelHealthRecord:
             "model": self.model_id,
             "provider": self.provider,
             "priority": self.priority,
-            "status": self.status if self.is_available or self.status != "cooldown" else self.status,
+            "status": self.status
+            if self.is_available or self.status != "cooldown"
+            else self.status,
             "latency_ms": int(self.avg_latency_ms),
             "requests_used": self.requests_made,
             "cooldown_remaining_s": cooldown_remaining,
@@ -171,9 +173,7 @@ class QuotaTracker:
         if is_quota_error:
             # Quota exhaustion — put model on cooldown (longer cooldown)
             record.status = "cooldown"
-            record.cooldown_until = datetime.utcnow() + timedelta(
-                seconds=self._cooldown_seconds
-            )
+            record.cooldown_until = datetime.utcnow() + timedelta(seconds=self._cooldown_seconds)
             logger.warning(
                 "quota_tracker_model_cooldown",
                 model=model_id,
@@ -229,9 +229,7 @@ class QuotaTracker:
             return False
         return record.is_available
 
-    def get_best_model(
-        self, strategy: str, candidates: list[str]
-    ) -> str | None:
+    def get_best_model(self, strategy: str, candidates: list[str]) -> str | None:
         """
         Select the best available model based on strategy.
 
@@ -269,9 +267,7 @@ class QuotaTracker:
         best = min(available, key=lambda r: r.priority)
         return best.model_id
 
-    def get_ordered_candidates(
-        self, strategy: str, all_candidates: list[str]
-    ) -> list[str]:
+    def get_ordered_candidates(self, strategy: str, all_candidates: list[str]) -> list[str]:
         """
         Return an ordered list of available model IDs based on strategy.
         Unavailable models are excluded. Used for failover chain.
@@ -347,31 +343,50 @@ class QuotaTracker:
         """Classify error into actionable categories for dashboard and routing."""
         error_lower = error_msg.lower()
 
-        if status_code == 429 or any(p in error_lower for p in [
-            "resource_exhausted", "rate_limit", "quota_exceeded",
-            "too many requests", "rate limit exceeded", "quota has been exhausted",
-            "requests per minute", "tokens per minute", "daily limit"
-        ]):
+        if status_code == 429 or any(
+            p in error_lower
+            for p in [
+                "resource_exhausted",
+                "rate_limit",
+                "quota_exceeded",
+                "too many requests",
+                "rate limit exceeded",
+                "quota has been exhausted",
+                "requests per minute",
+                "tokens per minute",
+                "daily limit",
+            ]
+        ):
             return "quota_exceeded"
 
         if status_code in (400, 403, 404):
-            if any(p in error_lower for p in [
-                "invalid api key", "unauthorized", "forbidden", "invalid key"
-            ]):
+            if any(
+                p in error_lower
+                for p in ["invalid api key", "unauthorized", "forbidden", "invalid key"]
+            ):
                 return "invalid_key"
-            if any(p in error_lower for p in [
-                "not found", "not enabled", "not supported", "invalid argument",
-                "developer instruction", "system instruction", "response_mime_type", "json mode"
-            ]):
+            if any(
+                p in error_lower
+                for p in [
+                    "not found",
+                    "not enabled",
+                    "not supported",
+                    "invalid argument",
+                    "developer instruction",
+                    "system instruction",
+                    "response_mime_type",
+                    "json mode",
+                ]
+            ):
                 return "permanent_failure"
             return "unavailable_model"
 
         if status_code == 503:
             return "service_overloaded"
 
-        if status_code == 0 and any(p in error_lower for p in [
-            "connect", "timeout", "dns", "network", "connection"
-        ]):
+        if status_code == 0 and any(
+            p in error_lower for p in ["connect", "timeout", "dns", "network", "connection"]
+        ):
             return "network_error"
 
         return "unknown"
@@ -390,7 +405,7 @@ class QuotaTracker:
                 "action": "manual_intervention_required",
                 "eta_seconds": 0,
                 "auto_recovers": False,
-                "reason": "Model marked unavailable (auth failure or incompatible). Check API keys or model compatibility."
+                "reason": "Model marked unavailable (auth failure or incompatible). Check API keys or model compatibility.",
             }
 
         if record.status == "cooldown":
@@ -399,14 +414,14 @@ class QuotaTracker:
                     "action": "waiting_cooldown",
                     "eta_seconds": cooldown_remaining,
                     "auto_recovers": True,
-                    "reason": f"Cooldown expires in {cooldown_remaining}s"
+                    "reason": f"Cooldown expires in {cooldown_remaining}s",
                 }
             else:
                 return {
                     "action": "cooldown_expired_recovering",
                     "eta_seconds": 0,
                     "auto_recovers": True,
-                    "reason": "Cooldown expired, will recover on next check"
+                    "reason": "Cooldown expired, will recover on next check",
                 }
 
         return {"action": "unknown", "eta_seconds": 0, "auto_recovers": False}

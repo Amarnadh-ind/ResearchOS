@@ -39,8 +39,7 @@ class NoveltyAgent(BaseAgent):
 
         claims_summary = "\n".join(f"- {c}" for c in verified_claims[:20])
         critique_summary = "\n".join(
-            f"- {c.get('claim', '')}: {c.get('evidence_quality', '')}"
-            for c in critiques[:15]
+            f"- {c.get('claim', '')}: {c.get('evidence_quality', '')}" for c in critiques[:15]
         )
 
         user_prompt = f"""Research Question: {research_question}

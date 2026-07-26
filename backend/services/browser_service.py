@@ -65,6 +65,7 @@ class BrowserService:
 
             if is_pdf:
                 from services.pdf_parser import get_pdf_parser
+
                 parser = get_pdf_parser()
                 parsed = await parser.parse_pdf(response.content)
                 title = parsed.get("title") or url

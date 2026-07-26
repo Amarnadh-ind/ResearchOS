@@ -115,7 +115,14 @@ async def _run_research_pipeline(session_id: str, request: ResearchRequest):
                     final_node_output = node_output
                 if final_node_output and not paper_finalized:
                     # Try to finalize with whatever paper we have
-                    await _finalize_paper(session_id, final_node_output, request, final_state, phase_timings, pipeline_start)
+                    await _finalize_paper(
+                        session_id,
+                        final_node_output,
+                        request,
+                        final_state,
+                        phase_timings,
+                        pipeline_start,
+                    )
                     paper_finalized = True
                 break
 
@@ -136,22 +143,29 @@ async def _run_research_pipeline(session_id: str, request: ResearchRequest):
 
                 # If this node completed the pipeline, finalize paper BEFORE marking status completed
                 if status == "completed" and node_output.get("final_paper") and not paper_finalized:
-                    await _finalize_paper(session_id, node_output, request, node_output, phase_timings, pipeline_start)
+                    await _finalize_paper(
+                        session_id, node_output, request, node_output, phase_timings, pipeline_start
+                    )
                     paper_finalized = True
                 else:
                     # Update status for intermediate nodes
                     if status:
-                        await session_mem.set_state(session_id, {
-                            "status": status,
-                            "current_agent": current_agent,
-                        })
+                        await session_mem.set_state(
+                            session_id,
+                            {
+                                "status": status,
+                                "current_agent": current_agent,
+                            },
+                        )
                         await metadata.update_session_status(session_id, status)
 
                 final_state = node_output
 
         # Store final paper if not already finalized (e.g., hard deadline or partial completion)
         if final_state and final_state.get("status") == "completed" and not paper_finalized:
-            await _finalize_paper(session_id, final_state, request, final_state, phase_timings, pipeline_start)
+            await _finalize_paper(
+                session_id, final_state, request, final_state, phase_timings, pipeline_start
+            )
         elif not paper_finalized:
             # Report timing even on partial completion
             timing_report = _build_timing_report(phase_timings, pipeline_start)
@@ -163,7 +177,9 @@ async def _run_research_pipeline(session_id: str, request: ResearchRequest):
         await session_mem.set_state(session_id, {"status": "failed", "error": str(e)})
         # Report timing on failure too
         timing_report = _build_timing_report(phase_timings, pipeline_start)
-        logger.info("research_timing_report_on_failure", session_id=session_id, timing=timing_report)
+        logger.info(
+            "research_timing_report_on_failure", session_id=session_id, timing=timing_report
+        )
 
     finally:
         _active_tasks.pop(session_id, None)
@@ -217,11 +233,14 @@ async def _finalize_paper(
     )
 
     await metadata.update_session_status(session_id, "completed")
-    await session_mem.set_state(session_id, {
-        "status": "completed",
-        "validation": validation,
-        "timing_report": timing_report,
-    })
+    await session_mem.set_state(
+        session_id,
+        {
+            "status": "completed",
+            "validation": validation,
+            "timing_report": timing_report,
+        },
+    )
     logger.info("research_completed_with_timing", session_id=session_id, timing=timing_report)
 
 
@@ -232,7 +251,11 @@ def _build_timing_report(
     """Build the timing telemetry report."""
     import time
 
-    total_ms = int((time.monotonic() - (pipeline_start or time.monotonic())) * 1000) if pipeline_start else 0
+    total_ms = (
+        int((time.monotonic() - (pipeline_start or time.monotonic())) * 1000)
+        if pipeline_start
+        else 0
+    )
 
     return {
         "total_ms": total_ms,
@@ -252,27 +275,31 @@ async def clean_session():
     # 1. Flush Redis (session cache)
     try:
         from memory.session import get_session_memory
+
         await get_session_memory().clear()
     except Exception as e:
         logger.warning("failed_cleaning_session_mem", error=str(e))
-        
+
     # 2. Clear Qdrant collections (retrieval cache)
     try:
         from memory.retrieval_mem import get_retrieval_memory
+
         await get_retrieval_memory().clear()
     except Exception as e:
         logger.warning("failed_cleaning_retrieval_mem", error=str(e))
-        
+
     # 3. Reset Neo4j memory graph (knowledge store)
     try:
         from memory.knowledge_graph import get_knowledge_graph
+
         await get_knowledge_graph().clear()
     except Exception as e:
         logger.warning("failed_cleaning_knowledge_graph", error=str(e))
-        
+
     # 4. Clear local metadata memory store
     try:
         from memory.metadata import get_metadata_store
+
         await get_metadata_store().clear()
     except Exception as e:
         logger.warning("failed_cleaning_metadata_store", error=str(e))
@@ -363,6 +390,7 @@ async def get_paper(session_id: str):
                     return paper_dict
         else:
             from sqlalchemy import text
+
             async with metadata._session_factory() as db:
                 result = await db.execute(
                     text("SELECT * FROM papers WHERE session_id = :sid ORDER BY id DESC LIMIT 1"),
@@ -436,7 +464,7 @@ async def _fetch_paper_from_metadata(metadata, session_id: str) -> dict | None:
 
     # Direct fallback for in-memory backend
     try:
-        if hasattr(metadata, '_using_fallback') and metadata._using_fallback:
+        if hasattr(metadata, "_using_fallback") and metadata._using_fallback:
             for pid, paper in metadata._memory._papers.items():
                 if paper.get("session_id") == session_id:
                     return paper
@@ -447,7 +475,9 @@ async def _fetch_paper_from_metadata(metadata, session_id: str) -> dict | None:
 
 
 @router.get("/{session_id}/preview")
-async def get_paper_preview(session_id: str, layout: str = "2 Column", font: str = "Times New Roman"):
+async def get_paper_preview(
+    session_id: str, layout: str = "2 Column", font: str = "Times New Roman"
+):
     """Return the IEEE-typeset paper as rendered HTML for instant iframe preview.
 
     This endpoint serves the same styled HTML used for PDF generation but returns
@@ -469,10 +499,18 @@ async def get_paper_preview(session_id: str, layout: str = "2 Column", font: str
     title = _escape_html(paper_data.get("title", "Research Paper"))
     abstract = _escape_html(paper_data.get("abstract", ""))
     keywords_list = paper_data.get("keywords", [])
-    keywords = ", ".join(str(k) for k in keywords_list) if isinstance(keywords_list, list) else str(keywords_list)
+    keywords = (
+        ", ".join(str(k) for k in keywords_list)
+        if isinstance(keywords_list, list)
+        else str(keywords_list)
+    )
     keywords = _escape_html(keywords)
     authors_list = paper_data.get("authors", ["ResearchOS Autonomous System"])
-    authors = ", ".join(str(a) for a in authors_list) if isinstance(authors_list, list) else str(authors_list)
+    authors = (
+        ", ".join(str(a) for a in authors_list)
+        if isinstance(authors_list, list)
+        else str(authors_list)
+    )
     authors = _escape_html(authors)
 
     # Column count
@@ -496,7 +534,9 @@ async def get_paper_preview(session_id: str, layout: str = "2 Column", font: str
         ref_clean = _escape_html(str(ref))
         references_html += f'<li class="reference-item">{ref_clean}</li>\n'
 
-    affiliation = _escape_html(paper_data.get("affiliation", "ResearchOS Autonomous Research System"))
+    affiliation = _escape_html(
+        paper_data.get("affiliation", "ResearchOS Autonomous Research System")
+    )
     email = paper_data.get("email", "")
     email_html = f'<div class="author-email">{_escape_html(email)}</div>' if email else ""
 
@@ -527,6 +567,7 @@ async def get_paper_preview(session_id: str, layout: str = "2 Column", font: str
 async def _compile_pdf_with_retry(paper_data: dict, layout: str, font: str) -> bytes:
     """Compile paper to PDF with endpoint-level retry."""
     from services.pdf_generator import PDFGenerator
+
     return await PDFGenerator.compile_paper_to_pdf(
         paper_data=paper_data,
         layout=layout,
@@ -548,7 +589,7 @@ async def get_paper_pdf(session_id: str, layout: str = "2 Column", font: str = "
         return Response(
             content=pdf_bytes,
             media_type="application/pdf",
-            headers={"Content-Disposition": f"attachment; filename=paper_{session_id}.pdf"}
+            headers={"Content-Disposition": f"attachment; filename=paper_{session_id}.pdf"},
         )
     except Exception as e:
         logger.error("pdf_generation_failed", error=str(e))
@@ -569,7 +610,7 @@ async def compile_custom_pdf(session_id: str, paper_data: dict):
         return Response(
             content=pdf_bytes,
             media_type="application/pdf",
-            headers={"Content-Disposition": f"attachment; filename=paper_edited_{session_id}.pdf"}
+            headers={"Content-Disposition": f"attachment; filename=paper_edited_{session_id}.pdf"},
         )
     except Exception as e:
         logger.error("custom_pdf_generation_failed", error=str(e))
@@ -581,12 +622,13 @@ async def get_diagnostics(session_id: str):
     """Retrieve pipeline diagnostics and agent executions for a session."""
     metadata = get_metadata_store()
     await metadata._ensure_backend()
-    
+
     executions = []
     if metadata._using_fallback:
         executions = [e for e in metadata._memory._executions if e.get("session_id") == session_id]
     else:
         from sqlalchemy import text
+
         async with metadata._session_factory() as db:
             result = await db.execute(
                 text("""
@@ -596,25 +638,27 @@ async def get_diagnostics(session_id: str):
                     WHERE session_id = :sid
                     ORDER BY created_at ASC
                 """),
-                {"sid": session_id}
+                {"sid": session_id},
             )
             rows = result.mappings().all()
             executions = [dict(row) for row in rows]
-            
+
     # Retrieve session info
     session = await metadata.get_session(session_id)
     topic = session.get("prompt") if session else "Unknown"
-    
+
     # Retrieve claims, sources, etc.
     session_mem = get_session_memory()
     state = await session_mem.get_state(session_id) or {}
-    
+
     return {
         "session_id": session_id,
         "topic": state.get("topic", topic),
         "search_queries": state.get("search_queries", []),
         "search_results": state.get("search_results", []),
-        "browser_urls": [p.get("url") for p in state.get("browsed_pages", [])] if state.get("browsed_pages") else [],
+        "browser_urls": [p.get("url") for p in state.get("browsed_pages", [])]
+        if state.get("browsed_pages")
+        else [],
         "reader_documents": state.get("documents", []),
         "claims_generated": state.get("claims", []),
         "citations_collected": state.get("citations", []),
@@ -643,6 +687,7 @@ async def list_sessions():
 
         async with metadata._session_factory() as db:
             from sqlalchemy import text
+
             result = await db.execute(
                 text("""
                     SELECT id, prompt, status, created_at, completed_at

@@ -126,13 +126,14 @@ def compute_page_budget(
 def count_words(text: str) -> int:
     """Count words in a text string, ignoring HTML tags and markdown syntax."""
     import re
+
     # Strip HTML tags
-    clean = re.sub(r'<[^>]+>', ' ', text)
+    clean = re.sub(r"<[^>]+>", " ", text)
     # Strip markdown syntax
-    clean = re.sub(r'[#*_`\[\]()!]', ' ', clean)
+    clean = re.sub(r"[#*_`\[\]()!]", " ", clean)
     # Strip LaTeX/math
-    clean = re.sub(r'\$\$.*?\$\$', ' EQUATION ', clean, flags=re.DOTALL)
-    clean = re.sub(r'\$.*?\$', ' EXPR ', clean)
+    clean = re.sub(r"\$\$.*?\$\$", " EQUATION ", clean, flags=re.DOTALL)
+    clean = re.sub(r"\$.*?\$", " EXPR ", clean)
     return len(clean.split())
 
 

@@ -64,10 +64,12 @@ class CitationAgent(BaseAgent):
         sources = input_data.get("sources", [])
 
         # 1. Log Citation Agent Input
-        logger.info("citation_agent_input_logging",
-                    documents=documents,
-                    claims=claims,
-                    verified_claims=verified_claims)
+        logger.info(
+            "citation_agent_input_logging",
+            documents=documents,
+            claims=claims,
+            verified_claims=verified_claims,
+        )
 
         # 3 & 4. Verify claims and source URLs are passed
         source_urls = set()
@@ -80,10 +82,12 @@ class CitationAgent(BaseAgent):
             if url:
                 source_urls.add(url)
 
-        logger.info("citation_agent_verified_inputs",
-                    claims_passed=len(claims) > 0 or len(verified_claims) > 0,
-                    source_urls_count=len(source_urls),
-                    source_urls=list(source_urls))
+        logger.info(
+            "citation_agent_verified_inputs",
+            claims_passed=len(claims) > 0 or len(verified_claims) > 0,
+            source_urls_count=len(source_urls),
+            source_urls=list(source_urls),
+        )
 
         # Build source information for prompt
         sources_text = []
@@ -123,17 +127,19 @@ Only include citations for sources that were actually accessed. DO NOT hallucina
                 if not c.get("title"):
                     continue
 
-                citations.append(CitationEntry(
-                    key=c.get("key", f"[{len(citations)+1}]"),
-                    ieee_format=c.get("ieee_format", ""),
-                    authors=c.get("authors", ["Unknown"]),
-                    title=c["title"],
-                    publication=c.get("publication"),
-                    year=c.get("year"),
-                    doi=c.get("doi"),
-                    url=c["url"],
-                    verified=True,  # We verified via source data
-                ))
+                citations.append(
+                    CitationEntry(
+                        key=c.get("key", f"[{len(citations) + 1}]"),
+                        ieee_format=c.get("ieee_format", ""),
+                        authors=c.get("authors", ["Unknown"]),
+                        title=c["title"],
+                        publication=c.get("publication"),
+                        year=c.get("year"),
+                        doi=c.get("doi"),
+                        url=c["url"],
+                        verified=True,  # We verified via source data
+                    )
+                )
             in_text_map = result.get("in_text_map", {})
         except Exception as e:
             logger.error("citation_agent_llm_error", error=str(e))
@@ -147,12 +153,14 @@ Only include citations for sources that were actually accessed. DO NOT hallucina
             citations=citations,
             in_text_map=in_text_map,
         )
-        
+
         # 2. Log Citation Agent Output
-        logger.info("citation_agent_output_logging",
-                    citation_count=len(citations),
-                    source_count=len(source_urls))
-                    
+        logger.info(
+            "citation_agent_output_logging",
+            citation_count=len(citations),
+            source_count=len(source_urls),
+        )
+
         return output.model_dump()
 
     def verify_output(self, output: dict) -> bool:

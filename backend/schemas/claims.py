@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 
 class Evidence(BaseModel):
     """A piece of evidence supporting a claim."""
+
     text: str
     source_url: str
     source_title: str
@@ -19,6 +20,7 @@ class Evidence(BaseModel):
 
 class Claim(BaseModel):
     """A research claim with full provenance chain."""
+
     id: UUID | None = None
     claim_text: str
     evidence: list[Evidence]
@@ -35,6 +37,7 @@ class Claim(BaseModel):
 
 class Citation(BaseModel):
     """A verified citation with full metadata."""
+
     id: UUID | None = None
     citation_key: str
     ieee_format: str

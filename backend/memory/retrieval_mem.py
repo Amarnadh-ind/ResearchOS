@@ -70,11 +70,13 @@ class RetrievalMemory:
         """Store document chunks with embeddings."""
         if self._using_fallback:
             for text, embedding, meta in zip(texts, embeddings, metadatas):
-                self._in_memory_store.append({
-                    "text": text,
-                    "vector": embedding,
-                    **meta,
-                })
+                self._in_memory_store.append(
+                    {
+                        "text": text,
+                        "vector": embedding,
+                        **meta,
+                    }
+                )
             logger.info("in_memory_upserted", count=len(texts))
             return
         await self.connect()
@@ -109,6 +111,7 @@ class RetrievalMemory:
         if self._using_fallback:
             # Simple cosine similarity search over in-memory store
             import numpy as np
+
             results = []
             q = np.array(query_embedding)
             q_norm = np.linalg.norm(q)
@@ -121,12 +124,14 @@ class RetrievalMemory:
                 if len(v) == 0:
                     continue
                 score = float(np.dot(q, v) / (q_norm * np.linalg.norm(v) + 1e-8))
-                results.append({
-                    "id": str(len(results)),
-                    "score": score,
-                    "text": doc.get("text", ""),
-                    **{k: v for k, v in doc.items() if k not in ("text", "vector")},
-                })
+                results.append(
+                    {
+                        "id": str(len(results)),
+                        "score": score,
+                        "text": doc.get("text", ""),
+                        **{k: v for k, v in doc.items() if k not in ("text", "vector")},
+                    }
+                )
             results.sort(key=lambda x: x["score"], reverse=True)
             return results[:limit]
         await self.connect()
@@ -180,7 +185,6 @@ class RetrievalMemory:
             logger.info("qdrant_collection_recreated", name=self._collection)
         except Exception as e:
             logger.error("failed_clearing_qdrant", error=str(e))
-
 
 
 _retrieval_memory: RetrievalMemory | None = None

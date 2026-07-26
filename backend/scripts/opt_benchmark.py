@@ -27,6 +27,7 @@ _original_complete_json = None
 def _install_call_counter():
     global _original_complete, _original_complete_json
     from services.llm import LLMClient
+
     _original_complete = LLMClient.complete
     _original_complete_json = LLMClient.complete_json
 
@@ -44,6 +45,7 @@ def _install_call_counter():
 
 def _uninstall_call_counter():
     from services.llm import LLMClient
+
     if _original_complete:
         LLMClient.complete = _original_complete
     if _original_complete_json:
@@ -51,7 +53,9 @@ def _uninstall_call_counter():
 
 
 # ── Pipeline runner ──────────────────────────────────────
-async def run_pipeline(prompt: str = "What are the latest advances in electric vehicle battery technology?") -> dict:
+async def run_pipeline(
+    prompt: str = "What are the latest advances in electric vehicle battery technology?",
+) -> dict:
     """Run the full research pipeline and return state + timing."""
     from graph.workflow import get_research_workflow
 
@@ -128,7 +132,12 @@ async def run_pipeline(prompt: str = "What are the latest advances in electric v
         return {"status": "completed", "time_s": elapsed, "calls": dict(_llm_call_counts)}
     except Exception as e:
         elapsed = time.monotonic() - start
-        return {"status": "failed", "error": str(e), "time_s": elapsed, "calls": dict(_llm_call_counts)}
+        return {
+            "status": "failed",
+            "error": str(e),
+            "time_s": elapsed,
+            "calls": dict(_llm_call_counts),
+        }
     finally:
         _uninstall_call_counter()
 
@@ -179,10 +188,7 @@ def compute_before_estimate() -> dict:
         + relevance_llm_calls_before
     )
     total_llm_after = (
-        json_calls_after
-        + expansion_llm_after
-        + humanizer_calls_after
-        + relevance_llm_calls_after
+        json_calls_after + expansion_llm_after + humanizer_calls_after + relevance_llm_calls_after
     )
 
     # Time estimate: assume ~3s per LLM call average
@@ -222,7 +228,7 @@ async def main():
     print(f"  relevance embedding calls:           {b['relevance_embedding_calls']}")
     print(f"  relevance LLM rewrites:              {b['relevance_llm_calls']}")
     print(f"  provider attempt multiplier:         x{b['provider_attempt_multiplier']}")
-    print(f"  -------------------------------------------")
+    print("  -------------------------------------------")
     print(f"  ESTIMATED total LLM calls:           {before['total_llm_calls']}")
     print(f"  ESTIMATED execution time:            {before['total_execution_time_s']}s")
 
@@ -239,7 +245,7 @@ async def main():
     print(f"    complete_json:  {result['calls'].get('complete_json', 0)}")
     print(f"  Actual execution time: {result['time_s']:.1f}s")
 
-    after_calls = sum(result['calls'].values())
+    after_calls = sum(result["calls"].values())
 
     # Comparison
     print()
@@ -252,14 +258,18 @@ async def main():
     time_pct = (time_savings / time_before * 100) if time_before > 0 else 0
 
     print(f"  {'Metric':<30} {'Before':>8} {'After':>8} {'Delta':>8} {'%':>7}")
-    print(f"  {'-'*30} {'-'*8} {'-'*8} {'-'*8} {'-'*7}")
-    print(f"  {'Total LLM calls':<30} {total_before:>8} {after_calls:>8} {-call_savings:>8} {call_pct:>6.1f}%")
-    print(f"  {'Execution time (s)':<30} {time_before:>8.1f} {result['time_s']:>8.1f} {-time_savings:>8.1f} {time_pct:>6.1f}%")
-    print(f"  =====================================")
-    print(f"  Target: under 600s (10 min)")
-    met = result['time_s'] < 600
+    print(f"  {'-' * 30} {'-' * 8} {'-' * 8} {'-' * 8} {'-' * 7}")
+    print(
+        f"  {'Total LLM calls':<30} {total_before:>8} {after_calls:>8} {-call_savings:>8} {call_pct:>6.1f}%"
+    )
+    print(
+        f"  {'Execution time (s)':<30} {time_before:>8.1f} {result['time_s']:>8.1f} {-time_savings:>8.1f} {time_pct:>6.1f}%"
+    )
+    print("  =====================================")
+    print("  Target: under 600s (10 min)")
+    met = result["time_s"] < 600
     print(f"  {'MET' if met else 'NOT MET'} -> {result['time_s']:.1f}s elapsed")
-    print(f"  =====================================")
+    print("  =====================================")
 
 
 if __name__ == "__main__":

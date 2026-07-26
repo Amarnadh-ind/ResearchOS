@@ -24,10 +24,11 @@ def clean_state(monkeypatch):
     monkeypatch.setenv("OPENROUTER_API_KEY", "")
     monkeypatch.setenv("GROK_API_KEY", "")
     monkeypatch.setenv("MANUS_API_KEY", "")
-    
+
     from config.settings import get_settings
+
     get_settings.cache_clear()
-    
+
     LLMManager._discovered_gemma_models = []
     LLMManager._discovered_gemini_models = []
     LLMManager._discovered_other_models = []
@@ -40,15 +41,28 @@ def clean_state(monkeypatch):
 
 def setup_mock_client(monkeypatch, mock_post_fn):
     """Utility to setup a mock httpx.AsyncClient."""
+
     async def mock_get(url, *args, **kwargs):
         req = httpx.Request("GET", url)
         if "models" in url:
             resp_data = {
                 "models": [
-                    {"name": "models/gemini-2.5-flash", "supportedGenerationMethods": ["generateContent"]},
-                    {"name": "models/gemini-2.5-flash-lite", "supportedGenerationMethods": ["generateContent"]},
-                    {"name": "models/gemma-4-31b-it", "supportedGenerationMethods": ["generateContent"]},
-                    {"name": "models/gemma-4-26b-a4b-it", "supportedGenerationMethods": ["generateContent"]},
+                    {
+                        "name": "models/gemini-2.5-flash",
+                        "supportedGenerationMethods": ["generateContent"],
+                    },
+                    {
+                        "name": "models/gemini-2.5-flash-lite",
+                        "supportedGenerationMethods": ["generateContent"],
+                    },
+                    {
+                        "name": "models/gemma-4-31b-it",
+                        "supportedGenerationMethods": ["generateContent"],
+                    },
+                    {
+                        "name": "models/gemma-4-26b-a4b-it",
+                        "supportedGenerationMethods": ["generateContent"],
+                    },
                 ]
             }
             return httpx.Response(status_code=200, request=req, json=resp_data)
@@ -74,6 +88,7 @@ async def test_429_triggers_immediate_failover(monkeypatch, capsys):
     monkeypatch.setenv("MANUS_API_KEY", "")
 
     from config.settings import get_settings
+
     get_settings.cache_clear()
 
     call_count = {"n": 0}
@@ -117,6 +132,7 @@ async def test_resource_exhausted_body_triggers_failover(monkeypatch, capsys):
     monkeypatch.setenv("MANUS_API_KEY", "")
 
     from config.settings import get_settings
+
     get_settings.cache_clear()
 
     call_count = {"n": 0}
@@ -163,6 +179,7 @@ async def test_full_chain_failover_to_mock(monkeypatch, capsys):
     monkeypatch.setenv("MANUS_API_KEY", "")
 
     from config.settings import get_settings
+
     get_settings.cache_clear()
 
     called_urls = []
@@ -200,6 +217,7 @@ async def test_failover_preserves_role_strategy(monkeypatch, capsys):
     monkeypatch.setenv("MANUS_API_KEY", "")
 
     from config.settings import get_settings
+
     get_settings.cache_clear()
 
     attempted_models = []
@@ -207,7 +225,8 @@ async def test_failover_preserves_role_strategy(monkeypatch, capsys):
     async def mock_post(url, *args, **kwargs):
         # Extract model from URL
         import re
-        model_match = re.search(r'/models/([^:]+):', url)
+
+        model_match = re.search(r"/models/([^:]+):", url)
         if model_match:
             attempted_models.append(model_match.group(1))
 

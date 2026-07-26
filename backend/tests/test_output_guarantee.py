@@ -32,6 +32,7 @@ def clean_state(monkeypatch):
     monkeypatch.setenv("MANUS_API_KEY", "")
 
     from config.settings import get_settings
+
     get_settings.cache_clear()
 
     yield
@@ -39,15 +40,28 @@ def clean_state(monkeypatch):
 
 def setup_all_fail_client(monkeypatch):
     """Setup mock where all real API calls fail with 429."""
+
     async def mock_get(url, *args, **kwargs):
         req = httpx.Request("GET", url)
         if "models" in url:
             resp_data = {
                 "models": [
-                    {"name": "models/gemini-2.5-flash", "supportedGenerationMethods": ["generateContent"]},
-                    {"name": "models/gemini-2.5-flash-lite", "supportedGenerationMethods": ["generateContent"]},
-                    {"name": "models/gemma-4-31b-it", "supportedGenerationMethods": ["generateContent"]},
-                    {"name": "models/gemma-4-26b-a4b-it", "supportedGenerationMethods": ["generateContent"]},
+                    {
+                        "name": "models/gemini-2.5-flash",
+                        "supportedGenerationMethods": ["generateContent"],
+                    },
+                    {
+                        "name": "models/gemini-2.5-flash-lite",
+                        "supportedGenerationMethods": ["generateContent"],
+                    },
+                    {
+                        "name": "models/gemma-4-31b-it",
+                        "supportedGenerationMethods": ["generateContent"],
+                    },
+                    {
+                        "name": "models/gemma-4-26b-a4b-it",
+                        "supportedGenerationMethods": ["generateContent"],
+                    },
                 ]
             }
             return httpx.Response(status_code=200, request=req, json=resp_data)
@@ -76,6 +90,7 @@ async def test_pipeline_completes_when_all_models_exhausted(monkeypatch):
 
     mgr = get_llm_manager()
     from config.settings import get_settings
+
     mgr.settings = get_settings()
 
     result = await mgr.generate(
@@ -96,6 +111,7 @@ async def test_each_pipeline_stage_produces_output(monkeypatch):
 
     mgr = get_llm_manager()
     from config.settings import get_settings
+
     mgr.settings = get_settings()
 
     pipeline_roles = [
@@ -128,6 +144,7 @@ async def test_mock_fallback_produces_valid_json(monkeypatch):
 
     mgr = get_llm_manager()
     from config.settings import get_settings
+
     mgr.settings = get_settings()
 
     json_roles = [
@@ -167,8 +184,14 @@ async def test_mixed_failures_some_real_some_mock(monkeypatch):
         if "models" in url:
             resp_data = {
                 "models": [
-                    {"name": "models/gemini-2.5-flash", "supportedGenerationMethods": ["generateContent"]},
-                    {"name": "models/gemini-2.5-flash-lite", "supportedGenerationMethods": ["generateContent"]},
+                    {
+                        "name": "models/gemini-2.5-flash",
+                        "supportedGenerationMethods": ["generateContent"],
+                    },
+                    {
+                        "name": "models/gemini-2.5-flash-lite",
+                        "supportedGenerationMethods": ["generateContent"],
+                    },
                 ]
             }
             return httpx.Response(status_code=200, request=req, json=resp_data)
@@ -203,6 +226,7 @@ async def test_mixed_failures_some_real_some_mock(monkeypatch):
 
     mgr = get_llm_manager()
     from config.settings import get_settings
+
     mgr.settings = get_settings()
 
     # First call: real model

@@ -69,7 +69,7 @@ class CriticAgent(BaseAgent):
         claims_text = []
         for i, claim in enumerate(claims):
             claims_text.append(
-                f"Claim {i+1}: {claim.get('claim', '')}\n"
+                f"Claim {i + 1}: {claim.get('claim', '')}\n"
                 f"Evidence: {claim.get('evidence', '')}\n"
                 f"Source: {claim.get('source_title', 'Unknown')}\n"
                 f"Confidence: {claim.get('confidence', 0)}"
@@ -92,35 +92,44 @@ Return ONLY valid JSON. No markdown. No explanations."""
         for c in result.get("critiques", []):
             if not isinstance(c, dict):
                 continue
-            
+
             # Extract claim
             claim_text = c.get("claim") or c.get("text") or ""
-            
+
             # Extract is_valid with fallbacks
             is_valid = c.get("is_valid")
             if is_valid is None:
                 is_valid = c.get("valid")
             if is_valid is None:
                 is_valid = True
-                
+
             # Extract critique text
-            critique_text = c.get("critique") or c.get("assessment") or c.get("analysis") or "Evidence is sufficient to support the claim."
-            
+            critique_text = (
+                c.get("critique")
+                or c.get("assessment")
+                or c.get("analysis")
+                or "Evidence is sufficient to support the claim."
+            )
+
             # Extract evidence quality
             evidence_quality = c.get("evidence_quality") or c.get("quality") or "moderate"
             if evidence_quality not in ("strong", "moderate", "weak", "insufficient"):
                 evidence_quality = "moderate"
-                
+
             # Extract suggested verification
-            suggested_verification = c.get("suggested_verification") or c.get("verification") or None
-            
-            critiques_list.append(CritiqueResult(
-                claim=claim_text,
-                is_valid=is_valid,
-                critique=critique_text,
-                evidence_quality=evidence_quality,
-                suggested_verification=suggested_verification
-            ))
+            suggested_verification = (
+                c.get("suggested_verification") or c.get("verification") or None
+            )
+
+            critiques_list.append(
+                CritiqueResult(
+                    claim=claim_text,
+                    is_valid=is_valid,
+                    critique=critique_text,
+                    evidence_quality=evidence_quality,
+                    suggested_verification=suggested_verification,
+                )
+            )
 
         output = CriticOutput(
             critiques=critiques_list,

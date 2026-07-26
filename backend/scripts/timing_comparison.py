@@ -18,9 +18,9 @@ logger = structlog.get_logger()
 async def run_sequential_simulation():
     """Simulate sequential execution timing."""
     logger.info("starting_sequential_simulation")
-    
+
     start_time = time.time()
-    
+
     # Simulate sequential execution with delays
     await asyncio.sleep(2.0)  # Search
     await asyncio.sleep(1.5)  # Firecrawl Extract
@@ -32,7 +32,7 @@ async def run_sequential_simulation():
     await asyncio.sleep(1.2)  # Writer
     await asyncio.sleep(0.9)  # IEEE Formatter
     await asyncio.sleep(0.4)  # Humanizer
-    
+
     end_time = time.time()
     return end_time - start_time
 
@@ -40,36 +40,36 @@ async def run_sequential_simulation():
 async def run_parallel_simulation():
     """Simulate parallel execution timing."""
     logger.info("starting_parallel_simulation")
-    
+
     start_time = time.time()
-    
+
     # Phase 1: Parallel execution
     search_task = asyncio.create_task(asyncio.sleep(2.0))
     firecrawl_task = asyncio.create_task(asyncio.sleep(1.5))
-    
+
     await search_task
     await firecrawl_task
-    
+
     # Phase 2: Parallel execution
     reader_task = asyncio.create_task(asyncio.sleep(1.0))
     claim_extractor_task = asyncio.create_task(asyncio.sleep(0.8))
-    
+
     await reader_task
     await claim_extractor_task
-    
+
     # Phase 3: Parallel execution
     novelty_task = asyncio.create_task(asyncio.sleep(0.6))
     citation_task = asyncio.create_task(asyncio.sleep(0.5))
-    
+
     await novelty_task
     await citation_task
-    
+
     # Sequential execution for remaining nodes
     await asyncio.sleep(0.7)  # Critic (now part of Phase 3)
     await asyncio.sleep(1.2)  # Writer
     await asyncio.sleep(0.9)  # IEEE Formatter
     await asyncio.sleep(0.4)  # Humanizer
-    
+
     end_time = time.time()
     return end_time - start_time
 
@@ -77,7 +77,7 @@ async def run_parallel_simulation():
 async def run_actual_workflow():
     """Run the actual workflow and measure timing."""
     logger.info("starting_actual_workflow")
-    
+
     # Create a minimal test state
     state: ResearchState = {
         "session_id": "test_session",
@@ -140,9 +140,9 @@ async def run_actual_workflow():
         "error": None,
         "events": [],
     }
-    
+
     start_time = time.time()
-    
+
     try:
         workflow = get_research_workflow()
         result = await workflow.ainvoke(state)
@@ -156,35 +156,37 @@ async def run_actual_workflow():
 async def main():
     """Run all timing comparisons."""
     logger.info("starting_timing_comparison")
-    
+
     # Run simulations
     sequential_time = await run_sequential_simulation()
     parallel_time = await run_parallel_simulation()
-    
+
     # Calculate improvements
     improvement = ((sequential_time - parallel_time) / sequential_time) * 100
-    
-    print("\n" + "="*60)
+
+    print("\n" + "=" * 60)
     print("TIMING COMPARISON RESULTS")
-    print("="*60)
+    print("=" * 60)
     print(f"Sequential Execution: {sequential_time:.2f} seconds")
     print(f"Parallel Execution:   {parallel_time:.2f} seconds")
     print(f"Improvement:          {improvement:.1f}% latency reduction")
-    print("="*60 + "\n")
-    
+    print("=" * 60 + "\n")
+
     # Run actual workflow
     actual_time, result = await run_actual_workflow()
     if actual_time > 0:
         print(f"Actual Workflow Execution: {actual_time:.2f} seconds")
         print(f"Workflow Status: {result.get('status', 'unknown')}")
-        print("="*60 + "\n")
-    
+        print("=" * 60 + "\n")
+
     # Log results
-    logger.info("timing_comparison_complete",
-                sequential_time=sequential_time,
-                parallel_time=parallel_time,
-                improvement_percentage=improvement,
-                actual_time=actual_time if actual_time > 0 else None)
+    logger.info(
+        "timing_comparison_complete",
+        sequential_time=sequential_time,
+        parallel_time=parallel_time,
+        improvement_percentage=improvement,
+        actual_time=actual_time if actual_time > 0 else None,
+    )
 
 
 if __name__ == "__main__":

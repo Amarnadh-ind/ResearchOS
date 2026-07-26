@@ -16,23 +16,62 @@ logger = structlog.get_logger()
 
 # Domains known for high-quality academic/technical content
 HIGH_QUALITY_DOMAINS = {
-    "arxiv.org", "ieee.org", "acm.org", "springer.com", "sciencedirect.com",
-    "nature.com", "science.org", "plos.org", "pubmed.ncbi.nlm.nih.gov",
-    "ncbi.nlm.nih.gov", "cambridge.org", "oxfordjournals.org", "tandfonline.com",
-    "wiley.com", "sagepub.com", "jstor.org", "researchgate.net", "semanticscholar.org",
-    "scholar.google.com", "dblp.org", "ieeexplore.ieee.org", "dl.acm.org",
-    "mit.edu", "stanford.edu", "harvard.edu", "ox.ac.uk", "cam.ac.uk",
-    "github.com", "paperswithcode.com", "openreview.net", "neurips.cc",
-    "iclr.cc", "cvf.io", "aaai.org", "ijcai.org",
+    "arxiv.org",
+    "ieee.org",
+    "acm.org",
+    "springer.com",
+    "sciencedirect.com",
+    "nature.com",
+    "science.org",
+    "plos.org",
+    "pubmed.ncbi.nlm.nih.gov",
+    "ncbi.nlm.nih.gov",
+    "cambridge.org",
+    "oxfordjournals.org",
+    "tandfonline.com",
+    "wiley.com",
+    "sagepub.com",
+    "jstor.org",
+    "researchgate.net",
+    "semanticscholar.org",
+    "scholar.google.com",
+    "dblp.org",
+    "ieeexplore.ieee.org",
+    "dl.acm.org",
+    "mit.edu",
+    "stanford.edu",
+    "harvard.edu",
+    "ox.ac.uk",
+    "cam.ac.uk",
+    "github.com",
+    "paperswithcode.com",
+    "openreview.net",
+    "neurips.cc",
+    "iclr.cc",
+    "cvf.io",
+    "aaai.org",
+    "ijcai.org",
 }
 
 MEDIUM_QUALITY_DOMAINS = {
-    "medium.com", "towardsdatascience.com", "analyticsvidhya.com",
-    "kaggle.com", "stackoverflow.com", "stackexchange.com",
-    "wikipedia.org", "wikidata.org", "news.ycombinator.com",
-    "techcrunch.com", "theverge.com", "venturebeat.com",
-    "arxiv-vanity.com", "huggingface.co", "giters.com",
-    "oreilly.com", "manning.com", "packtpub.com",
+    "medium.com",
+    "towardsdatascience.com",
+    "analyticsvidhya.com",
+    "kaggle.com",
+    "stackoverflow.com",
+    "stackexchange.com",
+    "wikipedia.org",
+    "wikidata.org",
+    "news.ycombinator.com",
+    "techcrunch.com",
+    "theverge.com",
+    "venturebeat.com",
+    "arxiv-vanity.com",
+    "huggingface.co",
+    "giters.com",
+    "oreilly.com",
+    "manning.com",
+    "packtpub.com",
 }
 
 
@@ -99,9 +138,7 @@ class WebSearchService:
             return await self._search_tavily(query, max_results)
         return await self._search_ddg(query, max_results)
 
-    async def _search_ddg(
-        self, query: str, max_results: int
-    ) -> list[SearchResult]:
+    async def _search_ddg(self, query: str, max_results: int) -> list[SearchResult]:
         """Search using DuckDuckGo (no API key needed)."""
         try:
             results = []
@@ -133,9 +170,7 @@ class WebSearchService:
             logger.error("search_ddg_error", query=query, error=str(e))
             return []
 
-    async def _search_tavily(
-        self, query: str, max_results: int
-    ) -> list[SearchResult]:
+    async def _search_tavily(self, query: str, max_results: int) -> list[SearchResult]:
         """Search using Tavily API."""
         import httpx
 

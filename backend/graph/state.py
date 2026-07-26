@@ -19,17 +19,17 @@ class ResearchState(TypedDict, total=False):
     layout: str
     font: str
     visual_mode: str
-    page_budget: dict         # Word count targets per section
-    target_word_count: int    # Total body word target
-    expansion_round: int      # How many times content has been expanded
+    page_budget: dict  # Word count targets per section
+    target_word_count: int  # Total body word target
+    expansion_round: int  # How many times content has been expanded
     topic_context: list[str]  # Topic context keywords for validation and grounding
-    topic: str                # User topic
+    topic: str  # User topic
     primary_topic: str
     secondary_topics: list[str]
     keywords: list[str]
     technical_domain: str
-    sources: list             # Active sources and citations
-    validation: dict          # Validation results dictionary
+    sources: list  # Active sources and citations
+    validation: dict  # Validation results dictionary
 
     # ── Planner Output ───────────────────────────────────
     research_question: str
@@ -89,12 +89,12 @@ class ResearchState(TypedDict, total=False):
     content_markdown: str
 
     # ── Critic / Revision ────────────────────────────────
-    paper_critique: dict        # Critic feedback on written paper
-    paper_revision: dict        # Revised paper content from writer_revision
+    paper_critique: dict  # Critic feedback on written paper
+    paper_revision: dict  # Revised paper content from writer_revision
 
     # ── Timing Telemetry ─────────────────────────────────
     pipeline_start_time: float  # time.monotonic() at pipeline start
-    timing: dict                # {"planner_ms": N, "search_ms": N, ...}
+    timing: dict  # {"planner_ms": N, "search_ms": N, ...}
 
     # ── Pipeline Control ─────────────────────────────────
     relevance_attempts: int

@@ -31,7 +31,12 @@ class Settings(BaseSettings):
     backend_host: str = "0.0.0.0"
     backend_port: int = 8000
     backend_workers: int = 4
-    cors_origins: list[str] = ["http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:3001", "http://127.0.0.1:3001"]
+    cors_origins: list[str] = [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:3001",
+        "http://127.0.0.1:3001",
+    ]
 
     # ── OpenRouter ───────────────────────────────────────
     openrouter_api_key: str = ""
@@ -120,4 +125,3 @@ import contextvars
 
 active_topic_var = contextvars.ContextVar("active_topic", default="")
 active_session_id_var = contextvars.ContextVar("active_session_id", default="")
-

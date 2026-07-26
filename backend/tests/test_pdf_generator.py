@@ -19,6 +19,7 @@ def test_font_css_from_name():
     assert _font_css_from_name("Arial") == "Arial, Helvetica, sans-serif"
     assert _font_css_from_name("InvalidFont") == "'InvalidFont', sans-serif"
 
+
 def test_parse_markdown_to_html():
     md = """## I. Introduction
 This is a paragraph with **bold** and *italic* text.
@@ -30,29 +31,26 @@ $$E = mc^2$$
 """
     html = parse_markdown_to_html(md)
     assert '<h2 class="section-heading">I. Introduction</h2>' in html
-    assert '<strong>bold</strong>' in html
-    assert '<em>italic</em>' in html
+    assert "<strong>bold</strong>" in html
+    assert "<em>italic</em>" in html
     assert '<h3 class="subsection-heading">A. Subsection</h3>' in html
-    assert '$$E = mc^2$$' in html
+    assert "$$E = mc^2$$" in html
+
 
 def test_build_sections_html():
     sections = [
         {
             "heading": "I. Introduction",
             "content": "Intro content",
-            "subsections": [
-                {
-                    "heading": "A. Background",
-                    "content": "Background content"
-                }
-            ]
+            "subsections": [{"heading": "A. Background", "content": "Background content"}],
         }
     ]
     html = _build_sections_html(sections)
     assert '<h2 class="section-heading">I. Introduction</h2>' in html
     assert '<h3 class="subsection-heading">A. Background</h3>' in html
-    assert 'Intro content' in html
-    assert 'Background content' in html
+    assert "Intro content" in html
+    assert "Background content" in html
+
 
 @pytest.mark.asyncio
 async def test_pdf_generation_flow():
@@ -66,16 +64,18 @@ async def test_pdf_generation_flow():
             {
                 "heading": "I. INTRODUCTION",
                 "content": "This is test introduction.",
-                "subsections": []
+                "subsections": [],
             }
         ],
-        "references": ["[1] A. Scholar, Test."]
+        "references": ["[1] A. Scholar, Test."],
     }
-    
+
     # We won't run full PDF generation if Playwright is missing or environment lacks GUI,
     # but we can try and catch failures, or test helper methods.
     try:
-        pdf_bytes = await PDFGenerator.compile_paper_to_pdf(paper, layout="2 Column", font="Times New Roman")
+        pdf_bytes = await PDFGenerator.compile_paper_to_pdf(
+            paper, layout="2 Column", font="Times New Roman"
+        )
         assert len(pdf_bytes) > 0
     except Exception as e:
         # If playwright is not initialized or chromium is missing, this might fail, which is okay for this test

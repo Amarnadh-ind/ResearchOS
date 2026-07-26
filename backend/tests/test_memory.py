@@ -14,30 +14,31 @@ from memory.session import InMemorySessionBackend, SessionMemory
 @pytest.mark.asyncio
 async def test_in_memory_session_backend():
     backend = InMemorySessionBackend()
-    
+
     # Test set & get
     await backend.set("test_key", "test_value")
     assert await backend.get("test_key") == "test_value"
-    
+
     # Test rpush & lrange
     await backend.rpush("list_key", "item1")
     await backend.rpush("list_key", "item2")
     items = await backend.lrange("list_key", 0, -1)
     assert items == ["item1", "item2"]
-    
+
     # Test hset & hget
     await backend.hset("hash_key", "field1", "val1")
     assert await backend.hget("hash_key", "field1") == "val1"
+
 
 @pytest.mark.asyncio
 async def test_session_memory():
     # Use SessionMemory with fallback forced
     memory = SessionMemory()
     await memory.connect()
-    
+
     session_id = str(uuid.uuid4())
     state = {"status": "planning", "topic": "AI"}
-    
+
     await memory.set_state(session_id, state)
     retrieved = await memory.get_state(session_id)
     assert retrieved == state
@@ -48,16 +49,17 @@ async def test_session_memory():
     assert len(events) == 1
     assert events[0]["agent"] == "planner"
 
+
 @pytest.mark.asyncio
 async def test_in_memory_metadata_backend():
     backend = InMemoryMetadataBackend()
     session_id = str(uuid.uuid4())
-    
+
     # Create session
     session = await backend.create_session(session_id, "test prompt")
     assert session["id"] == session_id
     assert session["status"] == "pending"
-    
+
     # Update status
     await backend.update_session_status(session_id, "completed")
     updated = await backend.get_session(session_id)
@@ -65,7 +67,9 @@ async def test_in_memory_metadata_backend():
     assert updated["completed_at"] is not None
 
     # Store source
-    source_id = await backend.store_source(session_id, "http://url.com", "Title", "web", "content", "hash")
+    source_id = await backend.store_source(
+        session_id, "http://url.com", "Title", "web", "content", "hash"
+    )
     assert source_id == "1"
 
     # Store claim
@@ -73,48 +77,52 @@ async def test_in_memory_metadata_backend():
     assert claim_id == "2"
 
     # Store paper
-    paper_id = await backend.store_paper(session_id, "Paper Title", "Abstract", [], [], "content md")
+    paper_id = await backend.store_paper(
+        session_id, "Paper Title", "Abstract", [], [], "content md"
+    )
     assert paper_id == "3"
+
 
 @pytest.mark.asyncio
 async def test_metadata_store():
     store = MetadataStore()
     session_id = str(uuid.uuid4())
-    
+
     # MetadataStore dynamically connects (gracefully falls back to memory if DB not running)
     session = await store.create_session(session_id, "Test prompt")
     assert str(session["id"]) == session_id
-    
+
     await store.update_session_status(session_id, "running")
     updated = await store.get_session(session_id)
     assert updated["status"] == "running"
-    
+
     # Clean up
     await store.disconnect()
+
 
 @pytest.mark.asyncio
 async def test_cleanup_stuck_sessions():
     store = MetadataStore()
-    
+
     # Force memory fallback for clean test state
     store._backend = "memory"
     store._using_fallback = True
     store._memory = InMemoryMetadataBackend()
-    
+
     # Create a transient planning session and a completed session
     id1 = str(uuid.uuid4())
     id2 = str(uuid.uuid4())
-    
+
     await store.create_session(id1, "prompt 1")
     await store.update_session_status(id1, "planning")
-    
+
     await store.create_session(id2, "prompt 2")
     await store.update_session_status(id2, "completed")
-    
+
     # Query active transient IDs
     active_ids = await store.get_active_session_ids()
     assert id1 in active_ids
     assert id2 not in active_ids
-    
+
     # Clean up
     await store.disconnect()

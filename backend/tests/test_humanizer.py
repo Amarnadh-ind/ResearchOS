@@ -26,16 +26,17 @@ async def test_humanizer_agent_bypasses_tables_equations_figures(monkeypatch):
                     "First prose paragraph. The Model Context Protocol establishes clean boundaries [1].\n\n"
                     "| Col 1 | Col 2 |\n|---|---|\n| A | B |\n\n"
                     "$$x + y = z$$\n\n"
-                    "<div class=\"figure\"><svg><rect/></svg></div>\n\n"
+                    '<div class="figure"><svg><rect/></svg></div>\n\n'
                     "Second prose paragraph. We evaluate the stdio transport layer [2]."
                 ),
-                "subsections": []
+                "subsections": [],
             }
         ],
-        "conclusion": "To conclude, the proposed methodology yields high performance."
+        "conclusion": "To conclude, the proposed methodology yields high performance.",
     }
 
     call_count = [0]
+
     # Mock LLM complete to return a humanized version of prose based on prompt content
     async def mock_complete(role, system_prompt, user_prompt, temperature=None, max_tokens=None):
         call_count[0] += 1
@@ -46,7 +47,7 @@ async def test_humanizer_agent_bypasses_tables_equations_figures(monkeypatch):
                 "Rewritten first paragraph. The Model Context Protocol establishes clean boundaries [1].\n\n"
                 "| Col 1 | Col 2 |\n|---|---|\n| A | B |\n\n"
                 "$$x + y = z$$\n\n"
-                "<div class=\"figure\"><svg><rect/></svg></div>\n\n"
+                '<div class="figure"><svg><rect/></svg></div>\n\n'
                 "Rewritten second paragraph. We evaluate the stdio transport layer [2]."
             )
         elif "conclude" in user_prompt:
@@ -64,13 +65,13 @@ async def test_humanizer_agent_bypasses_tables_equations_figures(monkeypatch):
     assert result["title"] == "A Great Paper"
     assert "humanized" in result["abstract"]
     assert "summarize" in result["conclusion"]
-    
+
     # Assert non-prose elements are exactly preserved
     content = result["sections"][0]["content"]
     assert "| Col 1 | Col 2 |" in content
     assert "$$x + y = z$$" in content
-    assert "<div class=\"figure\"><svg><rect/></svg></div>" in content
-    
+    assert '<div class="figure"><svg><rect/></svg></div>' in content
+
     # Assert inline citations are preserved
     assert "[1]" in content
     assert "[2]" in content
@@ -84,6 +85,7 @@ async def test_humanizer_node_success(monkeypatch):
     monkeypatch.setenv("NEMOTRON_API_KEY", "test")
     monkeypatch.setenv("MANUS_API_KEY", "test")
     from config.settings import get_settings
+
     get_settings.cache_clear()
     s = get_settings()
     s.fast_mode = False
@@ -94,14 +96,10 @@ async def test_humanizer_node_success(monkeypatch):
             "title": "A Great Paper",
             "abstract": "Machine abstract.",
             "sections": [
-                {
-                    "heading": "I. INTRODUCTION",
-                    "content": "First paragraph.",
-                    "subsections": []
-                }
+                {"heading": "I. INTRODUCTION", "content": "First paragraph.", "subsections": []}
             ],
-            "conclusion": "To conclude."
-        }
+            "conclusion": "To conclude.",
+        },
     }
 
     # Mock HumanizerAgent humanize_paper
@@ -113,7 +111,9 @@ async def test_humanizer_node_success(monkeypatch):
     monkeypatch.setattr(HumanizerAgent, "humanize_paper", mock_humanize_paper)
 
     # Mock _build_markdown in IEEEFormatter
-    monkeypatch.setattr("agents.ieee_formatter.IEEEFormatterAgent._build_markdown", lambda self, p: "Mock Markdown")
+    monkeypatch.setattr(
+        "agents.ieee_formatter.IEEEFormatterAgent._build_markdown", lambda self, p: "Mock Markdown"
+    )
 
     res = await humanizer_node(state)
 

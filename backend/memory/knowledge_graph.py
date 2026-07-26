@@ -54,11 +54,15 @@ class KnowledgeGraph:
     ):
         """Add a claim node with source relationship."""
         if self._using_fallback:
-            self._in_memory_claims.append({
-                "id": claim_id, "session_id": session_id,
-                "text": claim_text, "source_url": source_url,
-                "confidence": confidence,
-            })
+            self._in_memory_claims.append(
+                {
+                    "id": claim_id,
+                    "session_id": session_id,
+                    "text": claim_text,
+                    "source_url": source_url,
+                    "confidence": confidence,
+                }
+            )
             return
         await self.connect()
         async with self._driver.session() as session:
@@ -90,10 +94,14 @@ class KnowledgeGraph:
     ):
         """Add or merge a relationship between concepts."""
         if self._using_fallback:
-            self._in_memory_concepts.append({
-                "source": concept_a, "target": concept_b,
-                "type": relation, "session": session_id,
-            })
+            self._in_memory_concepts.append(
+                {
+                    "source": concept_a,
+                    "target": concept_b,
+                    "type": relation,
+                    "session": session_id,
+                }
+            )
             return
         await self.connect()
         async with self._driver.session() as session:
@@ -166,7 +174,6 @@ class KnowledgeGraph:
             logger.info("neo4j_graph_cleared")
         except Exception as e:
             logger.error("failed_clearing_neo4j", error=str(e))
-
 
 
 _knowledge_graph: KnowledgeGraph | None = None

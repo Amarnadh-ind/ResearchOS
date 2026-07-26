@@ -21,10 +21,11 @@ async def main():
     expanded = await expand_paper_content(writer, target, budget["section_budgets"])
     stats_after = count_paper_words(expanded)
     print(f"AFTER expansion:  {stats_after['body_words']} body words (target: {target})")
-    print(f"Ratio: {stats_after['body_words']/target:.1%}")
+    print(f"Ratio: {stats_after['body_words'] / target:.1%}")
     print("\nSection breakdown:")
     for sec, wc in stats_after["section_words"].items():
         print(f"  {sec}: {wc}")
+
 
 if __name__ == "__main__":
     asyncio.run(main())

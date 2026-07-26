@@ -50,22 +50,30 @@ def generate_bar_chart_svg(
     lines = [
         f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {width} {height}" '
         f'style="max-width:100%;height:auto;font-family:Times New Roman,serif;">',
-        f'  <text x="{width//2}" y="22" text-anchor="middle" font-size="12" font-weight="bold" fill="#1a3a7a">{title}</text>',
-        f'  <line x1="{chart_left}" y1="{chart_top}" x2="{chart_left}" y2="{chart_top + n*(bar_height+gap)}" stroke="#333" stroke-width="1"/>',
-        f'  <line x1="{chart_left}" y1="{chart_top + n*(bar_height+gap)}" x2="{chart_left + chart_width}" y2="{chart_top + n*(bar_height+gap)}" stroke="#333" stroke-width="1"/>',
+        f'  <text x="{width // 2}" y="22" text-anchor="middle" font-size="12" font-weight="bold" fill="#1a3a7a">{title}</text>',
+        f'  <line x1="{chart_left}" y1="{chart_top}" x2="{chart_left}" y2="{chart_top + n * (bar_height + gap)}" stroke="#333" stroke-width="1"/>',
+        f'  <line x1="{chart_left}" y1="{chart_top + n * (bar_height + gap)}" x2="{chart_left + chart_width}" y2="{chart_top + n * (bar_height + gap)}" stroke="#333" stroke-width="1"/>',
     ]
 
     for i, (cat, val) in enumerate(zip(categories, values)):
         y = chart_top + i * (bar_height + gap)
         bar_w = int((val / max_val) * chart_width) if max_val > 0 else 0
         color = palette[i % len(palette)]
-        lines.append(f'  <text x="{chart_left - 5}" y="{y + bar_height//2 + 4}" text-anchor="end" font-size="9" fill="#333">{cat}</text>')
-        lines.append(f'  <rect x="{chart_left + 1}" y="{y}" width="{bar_w}" height="{bar_height}" fill="{color}" rx="2"/>')
-        lines.append(f'  <text x="{chart_left + bar_w + 5}" y="{y + bar_height//2 + 4}" font-size="9" fill="#333">{val:.1f}</text>')
+        lines.append(
+            f'  <text x="{chart_left - 5}" y="{y + bar_height // 2 + 4}" text-anchor="end" font-size="9" fill="#333">{cat}</text>'
+        )
+        lines.append(
+            f'  <rect x="{chart_left + 1}" y="{y}" width="{bar_w}" height="{bar_height}" fill="{color}" rx="2"/>'
+        )
+        lines.append(
+            f'  <text x="{chart_left + bar_w + 5}" y="{y + bar_height // 2 + 4}" font-size="9" fill="#333">{val:.1f}</text>'
+        )
 
     # Y-axis label
-    lines.append(f'  <text x="{chart_left + chart_width//2}" y="{chart_top + n*(bar_height+gap) + 18}" text-anchor="middle" font-size="9" fill="#666">{ylabel}</text>')
-    lines.append('</svg>')
+    lines.append(
+        f'  <text x="{chart_left + chart_width // 2}" y="{chart_top + n * (bar_height + gap) + 18}" text-anchor="middle" font-size="9" fill="#666">{ylabel}</text>'
+    )
+    lines.append("</svg>")
     return "\n".join(lines)
 
 
@@ -100,7 +108,7 @@ def generate_line_chart_svg(
     lines = [
         f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {width} {height}" '
         f'style="max-width:100%;height:auto;font-family:Times New Roman,serif;">',
-        f'  <text x="{width//2}" y="22" text-anchor="middle" font-size="12" font-weight="bold" fill="#1a3a7a">{title}</text>',
+        f'  <text x="{width // 2}" y="22" text-anchor="middle" font-size="12" font-weight="bold" fill="#1a3a7a">{title}</text>',
         # Axes
         f'  <line x1="{chart_left}" y1="{chart_top}" x2="{chart_left}" y2="{chart_bottom}" stroke="#333" stroke-width="1"/>',
         f'  <line x1="{chart_left}" y1="{chart_bottom}" x2="{chart_right}" y2="{chart_bottom}" stroke="#333" stroke-width="1"/>',
@@ -110,13 +118,19 @@ def generate_line_chart_svg(
     for i in range(5):
         y = chart_bottom - (i / 4) * chart_h
         val = min_val + (i / 4) * val_range
-        lines.append(f'  <line x1="{chart_left}" y1="{y:.0f}" x2="{chart_right}" y2="{y:.0f}" stroke="#e0e0e0" stroke-width="0.5"/>')
-        lines.append(f'  <text x="{chart_left - 5}" y="{y + 3:.0f}" text-anchor="end" font-size="8" fill="#666">{val:.1f}</text>')
+        lines.append(
+            f'  <line x1="{chart_left}" y1="{y:.0f}" x2="{chart_right}" y2="{y:.0f}" stroke="#e0e0e0" stroke-width="0.5"/>'
+        )
+        lines.append(
+            f'  <text x="{chart_left - 5}" y="{y + 3:.0f}" text-anchor="end" font-size="8" fill="#666">{val:.1f}</text>'
+        )
 
     # X-axis labels
     for i, label in enumerate(x_labels):
         x = chart_left + (i / (n - 1)) * chart_w
-        lines.append(f'  <text x="{x:.0f}" y="{chart_bottom + 14}" text-anchor="middle" font-size="8" fill="#666">{label}</text>')
+        lines.append(
+            f'  <text x="{x:.0f}" y="{chart_bottom + 14}" text-anchor="middle" font-size="8" fill="#666">{label}</text>'
+        )
 
     # Series
     for si, (name, vals) in enumerate(series.items()):
@@ -127,20 +141,30 @@ def generate_line_chart_svg(
             y = chart_bottom - ((v - min_val) / val_range) * chart_h
             points.append(f"{x:.1f},{y:.1f}")
         polyline = " ".join(points)
-        lines.append(f'  <polyline points="{polyline}" fill="none" stroke="{color}" stroke-width="2"/>')
+        lines.append(
+            f'  <polyline points="{polyline}" fill="none" stroke="{color}" stroke-width="2"/>'
+        )
         # Data points
         for pt in points:
             px, py = pt.split(",")
             lines.append(f'  <circle cx="{px}" cy="{py}" r="3" fill="{color}"/>')
         # Legend entry
         ly = chart_top + 8 + si * 14
-        lines.append(f'  <rect x="{chart_right - 100}" y="{ly - 8}" width="10" height="10" fill="{color}"/>')
-        lines.append(f'  <text x="{chart_right - 86}" y="{ly}" font-size="8" fill="#333">{name}</text>')
+        lines.append(
+            f'  <rect x="{chart_right - 100}" y="{ly - 8}" width="10" height="10" fill="{color}"/>'
+        )
+        lines.append(
+            f'  <text x="{chart_right - 86}" y="{ly}" font-size="8" fill="#333">{name}</text>'
+        )
 
     # Axis labels
-    lines.append(f'  <text x="{chart_left + chart_w // 2}" y="{chart_bottom + 30}" text-anchor="middle" font-size="9" fill="#666">{xlabel}</text>')
-    lines.append(f'  <text x="14" y="{chart_top + chart_h // 2}" text-anchor="middle" font-size="9" fill="#666" transform="rotate(-90,14,{chart_top + chart_h // 2})">{ylabel}</text>')
-    lines.append('</svg>')
+    lines.append(
+        f'  <text x="{chart_left + chart_w // 2}" y="{chart_bottom + 30}" text-anchor="middle" font-size="9" fill="#666">{xlabel}</text>'
+    )
+    lines.append(
+        f'  <text x="14" y="{chart_top + chart_h // 2}" text-anchor="middle" font-size="9" fill="#666" transform="rotate(-90,14,{chart_top + chart_h // 2})">{ylabel}</text>'
+    )
+    lines.append("</svg>")
     return "\n".join(lines)
 
 
@@ -168,37 +192,47 @@ def generate_architecture_svg(
     lines = [
         f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {width} {height}" '
         f'style="max-width:100%;height:auto;font-family:Times New Roman,serif;">',
-        f'  <text x="{width//2}" y="22" text-anchor="middle" font-size="12" font-weight="bold" fill="#1a3a7a">{title}</text>',
-        '  <defs>',
+        f'  <text x="{width // 2}" y="22" text-anchor="middle" font-size="12" font-weight="bold" fill="#1a3a7a">{title}</text>',
+        "  <defs>",
         '    <marker id="arrowhead" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">',
         '      <polygon points="0 0, 8 3, 0 6" fill="#666"/>',
-        '    </marker>',
-        '  </defs>',
+        "    </marker>",
+        "  </defs>",
     ]
 
     for i, block in enumerate(blocks):
         x = start_x + i * (block_w + gap)
         color = palette[i % len(palette)]
         # Block rectangle
-        lines.append(f'  <rect x="{x}" y="{cy - block_h//2}" width="{block_w}" height="{block_h}" '
-                     f'fill="{color}" rx="6" opacity="0.9"/>')
+        lines.append(
+            f'  <rect x="{x}" y="{cy - block_h // 2}" width="{block_w}" height="{block_h}" '
+            f'fill="{color}" rx="6" opacity="0.9"/>'
+        )
         # Text (wrap if long)
         words = block.split()
         if len(words) > 2:
-            line1 = " ".join(words[:len(words)//2])
-            line2 = " ".join(words[len(words)//2:])
-            lines.append(f'  <text x="{x + block_w//2}" y="{cy - 4}" text-anchor="middle" font-size="8" fill="white" font-weight="bold">{line1}</text>')
-            lines.append(f'  <text x="{x + block_w//2}" y="{cy + 8}" text-anchor="middle" font-size="8" fill="white" font-weight="bold">{line2}</text>')
+            line1 = " ".join(words[: len(words) // 2])
+            line2 = " ".join(words[len(words) // 2 :])
+            lines.append(
+                f'  <text x="{x + block_w // 2}" y="{cy - 4}" text-anchor="middle" font-size="8" fill="white" font-weight="bold">{line1}</text>'
+            )
+            lines.append(
+                f'  <text x="{x + block_w // 2}" y="{cy + 8}" text-anchor="middle" font-size="8" fill="white" font-weight="bold">{line2}</text>'
+            )
         else:
-            lines.append(f'  <text x="{x + block_w//2}" y="{cy + 4}" text-anchor="middle" font-size="9" fill="white" font-weight="bold">{block}</text>')
+            lines.append(
+                f'  <text x="{x + block_w // 2}" y="{cy + 4}" text-anchor="middle" font-size="9" fill="white" font-weight="bold">{block}</text>'
+            )
 
         # Arrow to next block
         if i < n - 1:
             ax1 = x + block_w + 2
             ax2 = x + block_w + gap - 2
-            lines.append(f'  <line x1="{ax1}" y1="{cy}" x2="{ax2}" y2="{cy}" stroke="#666" stroke-width="1.5" marker-end="url(#arrowhead)"/>')
+            lines.append(
+                f'  <line x1="{ax1}" y1="{cy}" x2="{ax2}" y2="{cy}" stroke="#666" stroke-width="1.5" marker-end="url(#arrowhead)"/>'
+            )
 
-    lines.append('</svg>')
+    lines.append("</svg>")
     return "\n".join(lines)
 
 
@@ -212,6 +246,7 @@ def generate_pie_chart_svg(
 ) -> str:
     """Generate a pie/donut chart as SVG."""
     import math
+
     palette = PALETTES.get(palette_name, PALETTES["blue"])
     total = sum(values) if values else 1
     if total == 0:
@@ -223,7 +258,7 @@ def generate_pie_chart_svg(
     lines = [
         f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {width} {height}" '
         f'style="max-width:100%;height:auto;font-family:Times New Roman,serif;">',
-        f'  <text x="{width//2}" y="22" text-anchor="middle" font-size="12" font-weight="bold" fill="#1a3a7a">{title}</text>',
+        f'  <text x="{width // 2}" y="22" text-anchor="middle" font-size="12" font-weight="bold" fill="#1a3a7a">{title}</text>',
     ]
 
     angle = -90  # Start from top
@@ -251,36 +286,77 @@ def generate_pie_chart_svg(
         color = palette[i % len(palette)]
         ly = 50 + i * 16
         pct = (val / total) * 100
-        lines.append(f'  <rect x="{legend_x}" y="{ly}" width="10" height="10" fill="{color}" rx="1"/>')
-        lines.append(f'  <text x="{legend_x + 14}" y="{ly + 9}" font-size="8" fill="#333">{label} ({pct:.0f}%)</text>')
+        lines.append(
+            f'  <rect x="{legend_x}" y="{ly}" width="10" height="10" fill="{color}" rx="1"/>'
+        )
+        lines.append(
+            f'  <text x="{legend_x + 14}" y="{ly + 9}" font-size="8" fill="#333">{label} ({pct:.0f}%)</text>'
+        )
 
-    lines.append('</svg>')
+    lines.append("</svg>")
     return "\n".join(lines)
 
 
 def _detect_topic(topic_str: str) -> str:
     """Detect the topic domain from the topic string."""
     combined = (topic_str or "").lower()
-    if any(k in combined for k in ["mcp", "model context protocol", "json-rpc", "stdio transport", "sse transport"]):
+    if any(
+        k in combined
+        for k in ["mcp", "model context protocol", "json-rpc", "stdio transport", "sse transport"]
+    ):
         return "mcp"
-    if any(k in combined for k in ["ev", "electric vehicle", "battery", "anfis", "interleaved", "dc-dc", "buck converter", "ev charging"]):
+    if any(
+        k in combined
+        for k in [
+            "ev",
+            "electric vehicle",
+            "battery",
+            "anfis",
+            "interleaved",
+            "dc-dc",
+            "buck converter",
+            "ev charging",
+        ]
+    ):
         return "anfis"
-    if any(k in combined for k in ["crop", "plant", "disease", "cropvit", "plantvillage", "pathology"]):
+    if any(
+        k in combined for k in ["crop", "plant", "disease", "cropvit", "plantvillage", "pathology"]
+    ):
         return "crop"
     if any(k in combined for k in ["transport", "railway", "metro", "transit", "road"]):
         return "transport"
-    if any(k in combined for k in ["cinema", "film", "movie", "bollywood", "tollywood", "indian cinema"]):
+    if any(
+        k in combined
+        for k in ["cinema", "film", "movie", "bollywood", "tollywood", "indian cinema"]
+    ):
         return "cinema"
 
     # Humanities / non-tech indicators
-    non_tech_indicators = ["history", "art", "music", "culture", "literature", "society", "acting", "theater", "humanities", "philosophy", "education", "policy", "social", "politics"]
+    non_tech_indicators = [
+        "history",
+        "art",
+        "music",
+        "culture",
+        "literature",
+        "society",
+        "acting",
+        "theater",
+        "humanities",
+        "philosophy",
+        "education",
+        "policy",
+        "social",
+        "politics",
+    ]
     if any(ind in combined for ind in non_tech_indicators):
         return "humanities"
 
     return "generic"
 
 
-def generate_visuals_for_topic(topic: str, sections: list[dict], target_figures: int = 6) -> list[dict]:
+def generate_visuals_for_topic(
+    topic: str, sections: list[dict], target_figures: int = 6
+) -> list[dict]:
     """Generate a set of academic visuals (SVG) based on the topic and section structure.
 
     Returns a list of dicts:
@@ -306,11 +382,13 @@ def generate_visuals_for_topic(topic: str, sections: list[dict], target_figures:
             blocks=arch_blocks,
             palette_name=palette,
         )
-        figures.append({
-            "svg": svg,
-            "caption": f"Fig. {fig_num}. Architectural blueprint of the Model Context Protocol, displaying the separation of concerns between Host, Client, and Server layers.",
-            "section_category": "methodology",
-        })
+        figures.append(
+            {
+                "svg": svg,
+                "caption": f"Fig. {fig_num}. Architectural blueprint of the Model Context Protocol, displaying the separation of concerns between Host, Client, and Server layers.",
+                "section_category": "methodology",
+            }
+        )
         fig_num += 1
 
         # ── Figure 2: Latency Comparison Bar Chart ─────────────
@@ -323,11 +401,13 @@ def generate_visuals_for_topic(topic: str, sections: list[dict], target_figures:
             ylabel="Latency (ms)",
             palette_name=palette,
         )
-        figures.append({
-            "svg": svg,
-            "caption": f"Fig. {fig_num}. Performance benchmark comparison of stdio and SSE transport layers under varying network conditions.",
-            "section_category": "results",
-        })
+        figures.append(
+            {
+                "svg": svg,
+                "caption": f"Fig. {fig_num}. Performance benchmark comparison of stdio and SSE transport layers under varying network conditions.",
+                "section_category": "results",
+            }
+        )
         fig_num += 1
 
         # ── Figure 3: Latency scaling line chart ───────────────
@@ -342,25 +422,35 @@ def generate_visuals_for_topic(topic: str, sections: list[dict], target_figures:
             ylabel="Mean Latency (ms)",
             palette_name=palette,
         )
-        figures.append({
-            "svg": svg,
-            "caption": f"Fig. {fig_num}. Latency response characteristics of stdio vs SSE transport layers as concurrent client request rate scales.",
-            "section_category": "results",
-        })
+        figures.append(
+            {
+                "svg": svg,
+                "caption": f"Fig. {fig_num}. Latency response characteristics of stdio vs SSE transport layers as concurrent client request rate scales.",
+                "section_category": "results",
+            }
+        )
         fig_num += 1
 
         # ── Figure 4: Client-Server Overhead Breakdown ─────────
         svg = generate_pie_chart_svg(
             title="Client-Server Message Processing Overhead",
-            labels=["JSON-RPC Parsing", "Transport Framing", "Connection Overhead", "Tool Execution", "Other"],
+            labels=[
+                "JSON-RPC Parsing",
+                "Transport Framing",
+                "Connection Overhead",
+                "Tool Execution",
+                "Other",
+            ],
             values=[45, 18, 12, 20, 5],
             palette_name=palette,
         )
-        figures.append({
-            "svg": svg,
-            "caption": f"Fig. {fig_num}. Decomposition of computational execution time within the MCP client during a typical tool-call request-response lifecycle.",
-            "section_category": "discussion",
-        })
+        figures.append(
+            {
+                "svg": svg,
+                "caption": f"Fig. {fig_num}. Decomposition of computational execution time within the MCP client during a typical tool-call request-response lifecycle.",
+                "section_category": "discussion",
+            }
+        )
         fig_num += 1
 
         # ── Figure 5: Tool discovery scaling line chart ────────
@@ -375,15 +465,24 @@ def generate_visuals_for_topic(topic: str, sections: list[dict], target_figures:
             ylabel="Latency (ms)",
             palette_name=palette,
         )
-        figures.append({
-            "svg": svg,
-            "caption": f"Fig. {fig_num}. Scalability analysis of the tool list compilation and negotiation latency as the number of server-exposed tools grows.",
-            "section_category": "results",
-        })
+        figures.append(
+            {
+                "svg": svg,
+                "caption": f"Fig. {fig_num}. Scalability analysis of the tool list compilation and negotiation latency as the number of server-exposed tools grows.",
+                "section_category": "results",
+            }
+        )
         fig_num += 1
 
         # ── Figure 6: Request-Response Lifecycle Flow ──────────
-        lifecycle_blocks = ["Handshake Init", "Capabilities Neg.", "List Primitives", "JSON-RPC Call", "Exec Logic", "Result Stream"]
+        lifecycle_blocks = [
+            "Handshake Init",
+            "Capabilities Neg.",
+            "List Primitives",
+            "JSON-RPC Call",
+            "Exec Logic",
+            "Result Stream",
+        ]
         svg = generate_architecture_svg(
             title="MCP Handshake and Execution Flow Pipeline",
             blocks=lifecycle_blocks,
@@ -391,26 +490,37 @@ def generate_visuals_for_topic(topic: str, sections: list[dict], target_figures:
             width=460,
             height=240,
         )
-        figures.append({
-            "svg": svg,
-            "caption": f"Fig. {fig_num}. Sequential execution flow of the Model Context Protocol initialization handshake followed by a client-initiated tool invocation.",
-            "section_category": "methodology",
-        })
+        figures.append(
+            {
+                "svg": svg,
+                "caption": f"Fig. {fig_num}. Sequential execution flow of the Model Context Protocol initialization handshake followed by a client-initiated tool invocation.",
+                "section_category": "methodology",
+            }
+        )
         fig_num += 1
 
     elif topic_domain == "anfis":
         # ── Figure 1: ANFIS Architecture ──────────────────────
-        arch_blocks = ["EV Voltage Error", "Fuzzification", "Rule Base", "Normalization", "Defuzzification", "Duty Cycle Out"]
+        arch_blocks = [
+            "EV Voltage Error",
+            "Fuzzification",
+            "Rule Base",
+            "Normalization",
+            "Defuzzification",
+            "Duty Cycle Out",
+        ]
         svg = generate_architecture_svg(
             title="ANFIS Controller Architecture",
             blocks=arch_blocks,
             palette_name=palette,
         )
-        figures.append({
-            "svg": svg,
-            "caption": f"Fig. {fig_num}. Five-layer architecture of the proposed Adaptive Neuro-Fuzzy Inference System (ANFIS) for interleaved converter regulation.",
-            "section_category": "methodology",
-        })
+        figures.append(
+            {
+                "svg": svg,
+                "caption": f"Fig. {fig_num}. Five-layer architecture of the proposed Adaptive Neuro-Fuzzy Inference System (ANFIS) for interleaved converter regulation.",
+                "section_category": "methodology",
+            }
+        )
         fig_num += 1
 
         # ── Figure 2: Efficiency Comparison Bar Chart ─────────
@@ -423,11 +533,13 @@ def generate_visuals_for_topic(topic: str, sections: list[dict], target_figures:
             ylabel="Efficiency (%)",
             palette_name=palette,
         )
-        figures.append({
-            "svg": svg,
-            "caption": f"Fig. {fig_num}. Performance comparison showing the efficiency of the proposed ANFIS controller against baseline control strategies.",
-            "section_category": "results",
-        })
+        figures.append(
+            {
+                "svg": svg,
+                "caption": f"Fig. {fig_num}. Performance comparison showing the efficiency of the proposed ANFIS controller against baseline control strategies.",
+                "section_category": "results",
+            }
+        )
         fig_num += 1
 
         # ── Figure 3: Convergence Line Chart ──────────────────
@@ -442,25 +554,35 @@ def generate_visuals_for_topic(topic: str, sections: list[dict], target_figures:
             ylabel="RMSE",
             palette_name=palette,
         )
-        figures.append({
-            "svg": svg,
-            "caption": f"Fig. {fig_num}. Training and validation root mean square error (RMSE) convergence curves over 50 epochs.",
-            "section_category": "results",
-        })
+        figures.append(
+            {
+                "svg": svg,
+                "caption": f"Fig. {fig_num}. Training and validation root mean square error (RMSE) convergence curves over 50 epochs.",
+                "section_category": "results",
+            }
+        )
         fig_num += 1
 
         # ── Figure 4: Resource Distribution Pie Chart ──────────
         svg = generate_pie_chart_svg(
             title="Execution Time Breakdown of Controller Loop",
-            labels=["Membership Computation", "Rule Evaluation", "Defuzzification", "A/D Sampling", "Driver Latency"],
+            labels=[
+                "Membership Computation",
+                "Rule Evaluation",
+                "Defuzzification",
+                "A/D Sampling",
+                "Driver Latency",
+            ],
             values=[40, 25, 15, 12, 8],
             palette_name=palette,
         )
-        figures.append({
-            "svg": svg,
-            "caption": f"Fig. {fig_num}. Computational latency breakdown of the control loop execution cycles for real-time converter gate driver updates.",
-            "section_category": "discussion",
-        })
+        figures.append(
+            {
+                "svg": svg,
+                "caption": f"Fig. {fig_num}. Computational latency breakdown of the control loop execution cycles for real-time converter gate driver updates.",
+                "section_category": "discussion",
+            }
+        )
         fig_num += 1
 
         # ── Figure 5: Transient Response Line Chart ────────────
@@ -476,15 +598,23 @@ def generate_visuals_for_topic(topic: str, sections: list[dict], target_figures:
             ylabel="Output Voltage (V)",
             palette_name=palette,
         )
-        figures.append({
-            "svg": svg,
-            "caption": f"Fig. {fig_num}. Transient voltage recovery comparison under a 50% step load change showing rapid recovery of the proposed ANFIS controller.",
-            "section_category": "results",
-        })
+        figures.append(
+            {
+                "svg": svg,
+                "caption": f"Fig. {fig_num}. Transient voltage recovery comparison under a 50% step load change showing rapid recovery of the proposed ANFIS controller.",
+                "section_category": "results",
+            }
+        )
         fig_num += 1
 
         # ── Figure 6: Interleaved Switching Pipeline ───────────
-        phases = ["Phase 1 Switch", "Phase 2 Switch", "Phase 3 Switch", "Current Sum", "LC Output Filter"]
+        phases = [
+            "Phase 1 Switch",
+            "Phase 2 Switch",
+            "Phase 3 Switch",
+            "Current Sum",
+            "LC Output Filter",
+        ]
         svg = generate_architecture_svg(
             title="Three-Phase Interleaved Converter Summation Sequence",
             blocks=phases,
@@ -492,26 +622,36 @@ def generate_visuals_for_topic(topic: str, sections: list[dict], target_figures:
             width=460,
             height=240,
         )
-        figures.append({
-            "svg": svg,
-            "caption": f"Fig. {fig_num}. Multi-phase switching sequence and output current summation pipeline of the interleaved buck converter.",
-            "section_category": "methodology",
-        })
+        figures.append(
+            {
+                "svg": svg,
+                "caption": f"Fig. {fig_num}. Multi-phase switching sequence and output current summation pipeline of the interleaved buck converter.",
+                "section_category": "methodology",
+            }
+        )
         fig_num += 1
 
     elif topic_domain == "transport":
         # ── Figure 1: MARL Traffic Architecture ────────────────
-        arch_blocks = ["Sensor Grid", "Edge Processing", "MARL Traffic Agent", "Signal Controller", "Vehicle Dispatch"]
+        arch_blocks = [
+            "Sensor Grid",
+            "Edge Processing",
+            "MARL Traffic Agent",
+            "Signal Controller",
+            "Vehicle Dispatch",
+        ]
         svg = generate_architecture_svg(
             title="Multi-Agent Traffic Control Architecture",
             blocks=arch_blocks,
             palette_name=palette,
         )
-        figures.append({
-            "svg": svg,
-            "caption": f"Fig. {fig_num}. Structure of the proposed multi-agent reinforcement learning control loop for urban traffic scheduling.",
-            "section_category": "methodology",
-        })
+        figures.append(
+            {
+                "svg": svg,
+                "caption": f"Fig. {fig_num}. Structure of the proposed multi-agent reinforcement learning control loop for urban traffic scheduling.",
+                "section_category": "methodology",
+            }
+        )
         fig_num += 1
 
         # ── Figure 2: Delay Comparison Bar Chart ──────────────
@@ -524,11 +664,13 @@ def generate_visuals_for_topic(topic: str, sections: list[dict], target_figures:
             ylabel="Delay (s)",
             palette_name=palette,
         )
-        figures.append({
-            "svg": svg,
-            "caption": f"Fig. {fig_num}. Comparison of average passenger travel delays across different traffic control systems.",
-            "section_category": "results",
-        })
+        figures.append(
+            {
+                "svg": svg,
+                "caption": f"Fig. {fig_num}. Comparison of average passenger travel delays across different traffic control systems.",
+                "section_category": "results",
+            }
+        )
         fig_num += 1
 
         # ── Figure 3: Queue Dissipation Line Chart ─────────────
@@ -543,25 +685,35 @@ def generate_visuals_for_topic(topic: str, sections: list[dict], target_figures:
             ylabel="Congestion Level (%)",
             palette_name=palette,
         )
-        figures.append({
-            "svg": svg,
-            "caption": f"Fig. {fig_num}. Convergence rates and traffic dissipation characteristics under varying passenger densities.",
-            "section_category": "results",
-        })
+        figures.append(
+            {
+                "svg": svg,
+                "caption": f"Fig. {fig_num}. Convergence rates and traffic dissipation characteristics under varying passenger densities.",
+                "section_category": "results",
+            }
+        )
         fig_num += 1
 
         # ── Figure 4: Agent Overhead Breakdown ─────────────────
         svg = generate_pie_chart_svg(
             title="Computation Overhead Breakdown for MARL Agent",
-            labels=["Signal Phase Selection", "Sensor Reading", "Coordination Message", "Edge Inference", "Other"],
+            labels=[
+                "Signal Phase Selection",
+                "Sensor Reading",
+                "Coordination Message",
+                "Edge Inference",
+                "Other",
+            ],
             values=[50, 20, 15, 10, 5],
             palette_name=palette,
         )
-        figures.append({
-            "svg": svg,
-            "caption": f"Fig. {fig_num}. Breakdown of real-time control system computation overhead inside the edge node.",
-            "section_category": "discussion",
-        })
+        figures.append(
+            {
+                "svg": svg,
+                "caption": f"Fig. {fig_num}. Breakdown of real-time control system computation overhead inside the edge node.",
+                "section_category": "discussion",
+            }
+        )
         fig_num += 1
 
         # ── Figure 5: Queue Length Line Chart ──────────────────
@@ -576,15 +728,23 @@ def generate_visuals_for_topic(topic: str, sections: list[dict], target_figures:
             ylabel="Queue Length (m)",
             palette_name=palette,
         )
-        figures.append({
-            "svg": svg,
-            "caption": f"Fig. {fig_num}. Queue lengths at the main intersection comparing standard fixed-time signal configurations against adaptive MARL control.",
-            "section_category": "results",
-        })
+        figures.append(
+            {
+                "svg": svg,
+                "caption": f"Fig. {fig_num}. Queue lengths at the main intersection comparing standard fixed-time signal configurations against adaptive MARL control.",
+                "section_category": "results",
+            }
+        )
         fig_num += 1
 
         # ── Figure 6: Agent Action Cycle ───────────────────────
-        action_blocks = ["State Capture", "Q-Value Compute", "Cooperative Neg.", "Action Dispatch", "Reward Evaluate"]
+        action_blocks = [
+            "State Capture",
+            "Q-Value Compute",
+            "Cooperative Neg.",
+            "Action Dispatch",
+            "Reward Evaluate",
+        ]
         svg = generate_architecture_svg(
             title="Traffic Intersection Agent Decision Cycle",
             blocks=action_blocks,
@@ -592,30 +752,46 @@ def generate_visuals_for_topic(topic: str, sections: list[dict], target_figures:
             width=460,
             height=240,
         )
-        figures.append({
-            "svg": svg,
-            "caption": f"Fig. {fig_num}. Multi-agent state capture and reinforcement learning action cycle for traffic signal control.",
-            "section_category": "methodology",
-        })
+        figures.append(
+            {
+                "svg": svg,
+                "caption": f"Fig. {fig_num}. Multi-agent state capture and reinforcement learning action cycle for traffic signal control.",
+                "section_category": "methodology",
+            }
+        )
         fig_num += 1
 
     elif topic_domain == "cinema":
         # ── Figure 1: Indian Cinema Evolution Timeline ─────────
-        timeline_blocks = ["Early Silent Era", "Golden Age (1950s)", "Parallel Cinema", "Multiplex Boom", "OTT Revolution"]
+        timeline_blocks = [
+            "Early Silent Era",
+            "Golden Age (1950s)",
+            "Parallel Cinema",
+            "Multiplex Boom",
+            "OTT Revolution",
+        ]
         svg = generate_architecture_svg(
             title="Evolutionary Eras of Indian Cinema",
             blocks=timeline_blocks,
             palette_name=palette,
         )
-        figures.append({
-            "svg": svg,
-            "caption": f"Fig. {fig_num}. Timeline displaying the major eras of Indian cinema, highlighting transition points from early silent films to contemporary digital streaming platforms.",
-            "section_category": "methodology",
-        })
+        figures.append(
+            {
+                "svg": svg,
+                "caption": f"Fig. {fig_num}. Timeline displaying the major eras of Indian cinema, highlighting transition points from early silent films to contemporary digital streaming platforms.",
+                "section_category": "methodology",
+            }
+        )
         fig_num += 1
 
         # ── Figure 2: Box Office Market Share ──────────────────
-        categories = ["Telugu (Tollywood)", "Hindi (Bollywood)", "Tamil (Kollywood)", "Malayalam (Mollywood)", "Others"]
+        categories = [
+            "Telugu (Tollywood)",
+            "Hindi (Bollywood)",
+            "Tamil (Kollywood)",
+            "Malayalam (Mollywood)",
+            "Others",
+        ]
         shares = [36.0, 32.0, 18.0, 8.0, 6.0]
         svg = generate_bar_chart_svg(
             title="National Box Office Share by Language Hub (%)",
@@ -624,11 +800,13 @@ def generate_visuals_for_topic(topic: str, sections: list[dict], target_figures:
             ylabel="Box Office Share (%)",
             palette_name=palette,
         )
-        figures.append({
-            "svg": svg,
-            "caption": f"Fig. {fig_num}. Box office market share breakdown of the Indian film industry by language (2021-2024), illustrating the ascendancy of Southern regional cinema.",
-            "section_category": "results",
-        })
+        figures.append(
+            {
+                "svg": svg,
+                "caption": f"Fig. {fig_num}. Box office market share breakdown of the Indian film industry by language (2021-2024), illustrating the ascendancy of Southern regional cinema.",
+                "section_category": "results",
+            }
+        )
         fig_num += 1
 
         # ── Figure 3: Revenue comparison line chart ────────────
@@ -638,30 +816,43 @@ def generate_visuals_for_topic(topic: str, sections: list[dict], target_figures:
         svg = generate_line_chart_svg(
             title="Exhibition Revenue Trajectory Comparison",
             x_labels=years,
-            series={"Theatrical Box Office": theatrical_rev, "Streaming Subscriptions": streaming_rev},
+            series={
+                "Theatrical Box Office": theatrical_rev,
+                "Streaming Subscriptions": streaming_rev,
+            },
             xlabel="Year",
             ylabel="Revenue (Billion INR)",
             palette_name=palette,
         )
-        figures.append({
-            "svg": svg,
-            "caption": f"Fig. {fig_num}. Revenue trajectories comparing traditional theatrical box office collections with digital streaming subscriptions in India.",
-            "section_category": "results",
-        })
+        figures.append(
+            {
+                "svg": svg,
+                "caption": f"Fig. {fig_num}. Revenue trajectories comparing traditional theatrical box office collections with digital streaming subscriptions in India.",
+                "section_category": "results",
+            }
+        )
         fig_num += 1
 
         # ── Figure 4: Revenue Recovery Breakdown ───────────────
         svg = generate_pie_chart_svg(
             title="Typical High-Budget Film Revenue Streams",
-            labels=["Theatrical Exhibition", "Streaming Rights", "Satellite/TV Rights", "Music Rights", "Overseas Sales"],
+            labels=[
+                "Theatrical Exhibition",
+                "Streaming Rights",
+                "Satellite/TV Rights",
+                "Music Rights",
+                "Overseas Sales",
+            ],
             values=[45, 30, 12, 5, 8],
             palette_name=palette,
         )
-        figures.append({
-            "svg": svg,
-            "caption": f"Fig. {fig_num}. Typical revenue recovery distribution for high-budget pan-Indian cinematic releases.",
-            "section_category": "discussion",
-        })
+        figures.append(
+            {
+                "svg": svg,
+                "caption": f"Fig. {fig_num}. Typical revenue recovery distribution for high-budget pan-Indian cinematic releases.",
+                "section_category": "discussion",
+            }
+        )
         fig_num += 1
 
         # ── Figure 5: Screen Count Trend Line Chart ────────────
@@ -676,15 +867,24 @@ def generate_visuals_for_topic(topic: str, sections: list[dict], target_figures:
             ylabel="Number of Screens (k)",
             palette_name=palette,
         )
-        figures.append({
-            "svg": svg,
-            "caption": f"Fig. {fig_num}. Comparative screen count trends illustrating the decline of single-screen venues and the concurrent rise of multi-screen multiplexes.",
-            "section_category": "results",
-        })
+        figures.append(
+            {
+                "svg": svg,
+                "caption": f"Fig. {fig_num}. Comparative screen count trends illustrating the decline of single-screen venues and the concurrent rise of multi-screen multiplexes.",
+                "section_category": "results",
+            }
+        )
         fig_num += 1
 
         # ── Figure 6: Production to Release Lifecycle ──────────
-        lifecycle_blocks = ["Development", "Pre-Production", "Production", "Post-Prod.", "Theatrical Window", "OTT Release"]
+        lifecycle_blocks = [
+            "Development",
+            "Pre-Production",
+            "Production",
+            "Post-Prod.",
+            "Theatrical Window",
+            "OTT Release",
+        ]
         svg = generate_architecture_svg(
             title="Film Production and Distribution Workflow",
             blocks=lifecycle_blocks,
@@ -692,26 +892,36 @@ def generate_visuals_for_topic(topic: str, sections: list[dict], target_figures:
             width=460,
             height=240,
         )
-        figures.append({
-            "svg": svg,
-            "caption": f"Fig. {fig_num}. Structural workflow of contemporary film production, tracking the project lifecycle from script development to digital distribution.",
-            "section_category": "methodology",
-        })
+        figures.append(
+            {
+                "svg": svg,
+                "caption": f"Fig. {fig_num}. Structural workflow of contemporary film production, tracking the project lifecycle from script development to digital distribution.",
+                "section_category": "methodology",
+            }
+        )
         fig_num += 1
 
     elif topic_domain == "humanities":
         # ── Figure 1: Paradigm phases ─────────────────────────
-        phases = [f"Early {t}", f"Foundational {t}", f"Modern {t}", f"Postmodern {t}", f"Contemporary {t}"]
+        phases = [
+            f"Early {t}",
+            f"Foundational {t}",
+            f"Modern {t}",
+            f"Postmodern {t}",
+            f"Contemporary {t}",
+        ]
         svg = generate_architecture_svg(
             title=f"Evolutionary Phases of the Study of {_shorten(t, 25)}",
             blocks=phases,
             palette_name=palette,
         )
-        figures.append({
-            "svg": svg,
-            "caption": f"Fig. {fig_num}. Evolution and paradigm phases of {_shorten(t, 40)} across distinct historical epochs.",
-            "section_category": "methodology",
-        })
+        figures.append(
+            {
+                "svg": svg,
+                "caption": f"Fig. {fig_num}. Evolution and paradigm phases of {_shorten(t, 40)} across distinct historical epochs.",
+                "section_category": "methodology",
+            }
+        )
         fig_num += 1
 
         # ── Figure 2: Response Share Bar Chart ─────────────────
@@ -724,11 +934,13 @@ def generate_visuals_for_topic(topic: str, sections: list[dict], target_figures:
             ylabel="Response Share (%)",
             palette_name=palette,
         )
-        figures.append({
-            "svg": svg,
-            "caption": f"Fig. {fig_num}. Survey response distribution regarding public attitudes toward {_shorten(t, 50)}.",
-            "section_category": "results",
-        })
+        figures.append(
+            {
+                "svg": svg,
+                "caption": f"Fig. {fig_num}. Survey response distribution regarding public attitudes toward {_shorten(t, 50)}.",
+                "section_category": "results",
+            }
+        )
         fig_num += 1
 
         # ── Figure 3: Engagement Over Time Line Chart ──────────
@@ -743,25 +955,35 @@ def generate_visuals_for_topic(topic: str, sections: list[dict], target_figures:
             ylabel="Interest Share (%)",
             palette_name=palette,
         )
-        figures.append({
-            "svg": svg,
-            "caption": f"Fig. {fig_num}. Longitudinal engagement trend lines indicating the shifting demographic interest in {_shorten(t, 50)}.",
-            "section_category": "results",
-        })
+        figures.append(
+            {
+                "svg": svg,
+                "caption": f"Fig. {fig_num}. Longitudinal engagement trend lines indicating the shifting demographic interest in {_shorten(t, 50)}.",
+                "section_category": "results",
+            }
+        )
         fig_num += 1
 
         # ── Figure 4: Core Thematic Focus Pie Chart ────────────
         svg = generate_pie_chart_svg(
             title="Thematic Literature Output Distribution",
-            labels=["Socio-Cultural Factors", "Historical Context", "Policy Frameworks", "Individual Agency", "Other"],
+            labels=[
+                "Socio-Cultural Factors",
+                "Historical Context",
+                "Policy Frameworks",
+                "Individual Agency",
+                "Other",
+            ],
             values=[40, 25, 20, 10, 5],
             palette_name=palette,
         )
-        figures.append({
-            "svg": svg,
-            "caption": f"Fig. {fig_num}. Thematic distribution of peer-reviewed publications focusing on {_shorten(t, 50)}.",
-            "section_category": "discussion",
-        })
+        figures.append(
+            {
+                "svg": svg,
+                "caption": f"Fig. {fig_num}. Thematic distribution of peer-reviewed publications focusing on {_shorten(t, 50)}.",
+                "section_category": "discussion",
+            }
+        )
         fig_num += 1
 
         # ── Figure 5: Regional density line chart ──────────────
@@ -775,15 +997,23 @@ def generate_visuals_for_topic(topic: str, sections: list[dict], target_figures:
             ylabel="Output Index",
             palette_name=palette,
         )
-        figures.append({
-            "svg": svg,
-            "caption": f"Fig. {fig_num}. Regional density of research activities and institutions specializing in {_shorten(t, 50)}.",
-            "section_category": "results",
-        })
+        figures.append(
+            {
+                "svg": svg,
+                "caption": f"Fig. {fig_num}. Regional density of research activities and institutions specializing in {_shorten(t, 50)}.",
+                "section_category": "results",
+            }
+        )
         fig_num += 1
 
         # ── Figure 6: Analytical Workflow ──────────────────────
-        workflow = ["Source Selection", "Data Gathering", "Thematic Coding", "Interpretative Analysis", "Peer Validation"]
+        workflow = [
+            "Source Selection",
+            "Data Gathering",
+            "Thematic Coding",
+            "Interpretative Analysis",
+            "Peer Validation",
+        ]
         svg = generate_architecture_svg(
             title="Qualitative Methodology Workflow Sequence",
             blocks=workflow,
@@ -791,30 +1021,48 @@ def generate_visuals_for_topic(topic: str, sections: list[dict], target_figures:
             width=460,
             height=240,
         )
-        figures.append({
-            "svg": svg,
-            "caption": f"Fig. {fig_num}. Methodology workflow of the research framework applied to the study of {_shorten(t, 50)}.",
-            "section_category": "methodology",
-        })
+        figures.append(
+            {
+                "svg": svg,
+                "caption": f"Fig. {fig_num}. Methodology workflow of the research framework applied to the study of {_shorten(t, 50)}.",
+                "section_category": "methodology",
+            }
+        )
         fig_num += 1
 
     else:
         # ── Figure 1: System Architecture (Generic) ───────
-        arch_blocks = ["Data Input", "Preprocessing", "Core Processing", "Validation Gate", "Optimization Loop", "Output Stream"]
+        arch_blocks = [
+            "Data Input",
+            "Preprocessing",
+            "Core Processing",
+            "Validation Gate",
+            "Optimization Loop",
+            "Output Stream",
+        ]
         svg = generate_architecture_svg(
             title=f"Proposed System Architecture for {_shorten(t, 35)}",
             blocks=arch_blocks,
             palette_name=palette,
         )
-        figures.append({
-            "svg": svg,
-            "caption": f"Fig. {fig_num}. Overall system architecture of the proposed framework for {_shorten(t, 50)}.",
-            "section_category": "methodology",
-        })
+        figures.append(
+            {
+                "svg": svg,
+                "caption": f"Fig. {fig_num}. Overall system architecture of the proposed framework for {_shorten(t, 50)}.",
+                "section_category": "methodology",
+            }
+        )
         fig_num += 1
 
         # ── Figure 2: Performance Comparison Bar Chart ─────────
-        methods = ["Baseline A", "Baseline B", "Standard Model", "Extended Model", "State-of-Art", "Proposed"]
+        methods = [
+            "Baseline A",
+            "Baseline B",
+            "Standard Model",
+            "Extended Model",
+            "State-of-Art",
+            "Proposed",
+        ]
         base_acc = [91.2, 94.6, 95.1, 96.8, 97.3, 99.4]
         # Add some topic-based variation
         seed = h % 100
@@ -827,11 +1075,13 @@ def generate_visuals_for_topic(topic: str, sections: list[dict], target_figures:
             ylabel="Performance Index (%)",
             palette_name=palette,
         )
-        figures.append({
-            "svg": svg,
-            "caption": f"Fig. {fig_num}. Performance comparison of the proposed method against standard baselines.",
-            "section_category": "results",
-        })
+        figures.append(
+            {
+                "svg": svg,
+                "caption": f"Fig. {fig_num}. Performance comparison of the proposed method against standard baselines.",
+                "section_category": "results",
+            }
+        )
         fig_num += 1
 
         # ── Figure 3: Convergence Line Chart ──────────
@@ -846,25 +1096,35 @@ def generate_visuals_for_topic(topic: str, sections: list[dict], target_figures:
             ylabel="Error Rate",
             palette_name=palette,
         )
-        figures.append({
-            "svg": svg,
-            "caption": f"Fig. {fig_num}. Error convergence and system stabilization over 50 iterations.",
-            "section_category": "results",
-        })
+        figures.append(
+            {
+                "svg": svg,
+                "caption": f"Fig. {fig_num}. Error convergence and system stabilization over 50 iterations.",
+                "section_category": "results",
+            }
+        )
         fig_num += 1
 
         # ── Figure 4: Resource Distribution Pie Chart ──────────
         svg = generate_pie_chart_svg(
             title="Computational Resource Distribution",
-            labels=["Data Processing", "Optimization Core", "Validation Layer", "I/O Interface", "Other"],
+            labels=[
+                "Data Processing",
+                "Optimization Core",
+                "Validation Layer",
+                "I/O Interface",
+                "Other",
+            ],
             values=[38, 32, 15, 10, 5],
             palette_name=palette,
         )
-        figures.append({
-            "svg": svg,
-            "caption": f"Fig. {fig_num}. Distribution of computational resources across different system components.",
-            "section_category": "discussion",
-        })
+        figures.append(
+            {
+                "svg": svg,
+                "caption": f"Fig. {fig_num}. Distribution of computational resources across different system components.",
+                "section_category": "discussion",
+            }
+        )
         fig_num += 1
 
         # ── Figure 5: Scalability Line Chart ───────────────────
@@ -880,15 +1140,23 @@ def generate_visuals_for_topic(topic: str, sections: list[dict], target_figures:
             ylabel="Speedup (×)",
             palette_name=palette,
         )
-        figures.append({
-            "svg": svg,
-            "caption": f"Fig. {fig_num}. Scalability analysis showing speedup characteristics of the proposed framework.",
-            "section_category": "results",
-        })
+        figures.append(
+            {
+                "svg": svg,
+                "caption": f"Fig. {fig_num}. Scalability analysis showing speedup characteristics of the proposed framework.",
+                "section_category": "results",
+            }
+        )
         fig_num += 1
 
         # ── Figure 6: Processing Pipeline ──────────────────────
-        pipeline_blocks = ["Input Interface", "Data Parsing", "Execution Engine", "Consensus Module", "Output Formatting"]
+        pipeline_blocks = [
+            "Input Interface",
+            "Data Parsing",
+            "Execution Engine",
+            "Consensus Module",
+            "Output Formatting",
+        ]
         svg = generate_architecture_svg(
             title=f"Processing Pipeline of {_shorten(t, 30)}",
             blocks=pipeline_blocks,
@@ -896,11 +1164,13 @@ def generate_visuals_for_topic(topic: str, sections: list[dict], target_figures:
             width=460,
             height=240,
         )
-        figures.append({
-            "svg": svg,
-            "caption": f"Fig. {fig_num}. Detailed processing pipeline of the proposed {_shorten(t, 40)} framework.",
-            "section_category": "methodology",
-        })
+        figures.append(
+            {
+                "svg": svg,
+                "caption": f"Fig. {fig_num}. Detailed processing pipeline of the proposed {_shorten(t, 40)} framework.",
+                "section_category": "methodology",
+            }
+        )
         fig_num += 1
 
     return figures[:target_figures]
@@ -936,11 +1206,25 @@ def inject_visuals_into_paper(paper_data: dict, topic: str, target_figures: int 
             cat = "introduction"
         elif any(k in heading for k in ("LITERATURE", "RELATED", "REVIEW")):
             cat = "literature"
-        elif any(k in heading for k in ("METHOD", "PROPOSED", "APPROACH", "FRAMEWORK", "SYSTEM", "DESIGN", "ALGORITHM")):
+        elif any(
+            k in heading
+            for k in (
+                "METHOD",
+                "PROPOSED",
+                "APPROACH",
+                "FRAMEWORK",
+                "SYSTEM",
+                "DESIGN",
+                "ALGORITHM",
+            )
+        ):
             cat = "methodology"
         elif any(k in heading for k in ("MATH", "MODEL", "EQUATION", "FORMULA")):
             cat = "methodology"
-        elif any(k in heading for k in ("RESULT", "EXPERIMENT", "SIMULATION", "PERFORMANCE", "EVALUATION", "SETUP")):
+        elif any(
+            k in heading
+            for k in ("RESULT", "EXPERIMENT", "SIMULATION", "PERFORMANCE", "EVALUATION", "SETUP")
+        ):
             cat = "results"
         elif any(k in heading for k in ("DISCUSSION", "ANALYSIS", "INTERPRETATION", "LIMITATION")):
             cat = "discussion"
@@ -987,9 +1271,9 @@ def inject_visuals_into_paper(paper_data: dict, topic: str, target_figures: int 
         # Inject the figure as an HTML block at the end of the section content
         figure_html = (
             f'\n\n<div class="figure-container">\n'
-            f'  {fig["svg"]}\n'
+            f"  {fig['svg']}\n"
             f'  <div class="figure-caption">{fig["caption"]}</div>\n'
-            f'</div>\n'
+            f"</div>\n"
         )
         sections[best_idx]["content"] = sections[best_idx].get("content", "") + figure_html
 
@@ -1008,4 +1292,4 @@ def _shorten(text: str, max_len: int) -> str:
     """Shorten text to max_len, adding ... if truncated."""
     if len(text) <= max_len:
         return text
-    return text[:max_len - 3].rsplit(" ", 1)[0] + "..."
+    return text[: max_len - 3].rsplit(" ", 1)[0] + "..."

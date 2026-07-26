@@ -25,6 +25,12 @@ build/
 dist/
 .npm
 *.log
+next-env.d.ts
+tsconfig.tsbuildinfo
+
+# Build artifacts
+output/
+artifacts/
 
 # IDEs and OS
 .idea/
@@ -38,22 +44,10 @@ dist/
 Thumbs.db
 
 # Project specific
-output/
 sample/
 .agents/
 .ruff_cache/
 skills-lock.json
 
-# Temp debug/report files at root
-Check
-all
-artifacts/
-exist
-files
-if
-new
-
-# Backend temp files
-backend/*.json
-backend/server.err
-backend/static/
+# Corrupted npm artifacts
+package.json#

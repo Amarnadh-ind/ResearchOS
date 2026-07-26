@@ -57,7 +57,6 @@ def should_continue(state: ResearchState) -> str:
         "ieee_formatter": "humanizer",
         "humanizer": "page_validator",
         "page_validator": "done",
-
         # Terminal
         "done": END,
     }
@@ -80,22 +79,26 @@ async def _citation_novelty_parallel_executor(state: ResearchState) -> dict:
     if isinstance(citation_result, Exception):
         logger.error(f"Citation failed in parallel execution: {citation_result}")
         # Citation failure is NOT fatal — use fallback
-        merged_state.update({
-            "citations": [],
-            "in_text_map": {},
-            "writer_citation_status": "Citation Review Required",
-        })
+        merged_state.update(
+            {
+                "citations": [],
+                "in_text_map": {},
+                "writer_citation_status": "Citation Review Required",
+            }
+        )
     else:
         merged_state.update(citation_result)
 
     if isinstance(novelty_result, Exception):
         logger.error(f"Novelty failed in parallel execution: {novelty_result}")
         # Novelty failure is never fatal
-        merged_state.update({
-            "novelty_score": 0.5,
-            "novel_contributions": [],
-            "research_gaps": [],
-        })
+        merged_state.update(
+            {
+                "novelty_score": 0.5,
+                "novel_contributions": [],
+                "research_gaps": [],
+            }
+        )
     else:
         merged_state.update(novelty_result)
 

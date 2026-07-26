@@ -77,6 +77,7 @@ class SessionMemory:
         if self._redis is None:
             try:
                 import redis.asyncio as redis
+
                 client = redis.from_url(self._url, decode_responses=True)
                 await client.ping()
                 self._redis = client
@@ -129,9 +130,7 @@ class SessionMemory:
     async def get_events(self, session_id: str, start: int = 0) -> list[dict]:
         """Get all events from a session."""
         await self.connect()
-        events = await self._redis.lrange(
-            self._key(session_id, "events"), start, -1
-        )
+        events = await self._redis.lrange(self._key(session_id, "events"), start, -1)
         return [json.loads(e) for e in events]
 
     async def set_agent_output(self, session_id: str, agent: str, output: dict):
