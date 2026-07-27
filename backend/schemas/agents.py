@@ -158,8 +158,7 @@ class CitationOutput(BaseModel):
     """Output of the Citation Agent."""
 
     citations: list[CitationEntry]
-    in_text_map: dict[str, str]  # claim_hash -> citation_key
-
+    in_text_map: dict[str, str | None]  # claim_hash -> citation_key
 
 class IEEEPaper(BaseModel):
     """Final IEEE-formatted paper."""
